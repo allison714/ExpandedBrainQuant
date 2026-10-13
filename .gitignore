@@ -35,3 +35,10 @@ Thumbs.db
 desktop.ini
 .vscode/
 .claude/
+
+# ebq package
+out/
+*.egg-info/
+build/
+dist/
+.pytest_cache/

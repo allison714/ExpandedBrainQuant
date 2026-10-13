@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ebq"
+version = "0.1.0"
+description = "3D analysis of pan-expansion-microscopy volumes: synapses, nuclei, expansion factor, antibody organisation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Allison Cairns" }]
+dependencies = [
+    "numpy>=2",
+    "scipy>=1.11",
+    "scikit-image>=0.22",
+    "zarr>=3",
+    "dask[array]",
+    "matplotlib",
+    "contourpy>=1.3",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+ebq = "ebq.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ebq*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
