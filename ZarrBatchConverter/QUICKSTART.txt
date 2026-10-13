@@ -1,0 +1,395 @@
+ZARR BATCH CONVERTER - QUICKSTART
+=================================
+
+Converts microscope images (Imaris .ims, Nikon .nd2, Leica .lif, Zeiss .czi,
+TIFF, OME-TIFF and others) to OME-Zarr on the lab server, and keeps an Excel
+list of every image with its metadata and a one-click Neuroglancer link.
+
+
+WHAT IS IN THIS FOLDER
+----------------------
+  First_Time_Setup.bat   Run once per PC. Checks requirements, saves your folders.
+  Convert_To_Zarr.bat    The one you use day to day.
+  Save_NG_View.bat       Keeps a Neuroglancer view: your default link and/or an ROI.
+  Log_Screenshots.bat    Exports QC pictures per sample and keeps the screenshot log.
+  Make_Gallery.bat       Builds a browser page for looking through every sample.
+  Measure_AB_Efficiency.bat  Measures antibody labelling against the pan stain.
+  convert_to_zarr.py     The programs the .bat files run. Leave them beside
+  roi_log.py             the .bat files.
+  ab_efficiency.py
+  synapse_exf.py
+  Measure_ExF.bat        Finds synapses and measures the expansion factor.
+  settings.ini           Your saved folders (created by the setup).
+  QUICKSTART.txt         This file.
+
+Keep the files together. The folder itself can live anywhere.
+
+
+BEFORE YOU START (ONE TIME PER PC)
+----------------------------------
+1. Install NGFF-Converter (Glencoe Software). It does the actual conversion.
+   Download the Windows .msi and install it with the default options:
+     https://github.com/glencoesoftware/NGFF-Converter/releases/latest
+   You never need to open it.
+
+2. Have Python 3.9 or newer (Anaconda counts).
+     https://www.python.org/downloads/   - tick "Add python.exe to PATH"
+
+3. Connect the lab server drive (X:) so X:\nginx_share is reachable.
+
+4. Double-click First_Time_Setup.bat. It installs three small Python packages
+   if they are missing, confirms NGFF-Converter is found, then asks four
+   questions. Each one says what the location is for and whether it is
+   required. Press Enter to accept the value shown, or paste another path.
+
+     1. Zarr folder      REQUIRED
+        Where converted images are written. Must be inside nginx_share on the
+        lab server, or the images get no Neuroglancer links. Everyone in the
+        lab should use the same one.
+        Lab default: X:\nginx_share\exm\2026\zarr
+
+     2. Image list       REQUIRED (the default is fine)
+        The read-only metadata workbook. It is always produced; you only
+        choose where. Keep it on the server so the lab shares one list.
+        Lab default: X:\nginx_share\exm\2026\Zarr Image List.xlsx
+
+     3. Notes workbook   OPTIONAL (type NONE to go without)
+        The workbook you type in. Keep it in a folder of your own.
+
+     4. Scratch folder   OPTIONAL (the default is fine)
+        A temporary local work area. Change it only if the drive is short of
+        space: it needs about 2x your largest image. Must not be a OneDrive
+        or network folder.
+
+   Run the setup again whenever you want to change a folder.
+
+   If you were handed this folder by someone else, run the setup yourself:
+   settings.ini still holds their folders.
+
+
+CONVERTING IMAGES
+-----------------
+1. Name your files the way you want them to appear BEFORE converting. The zarr
+   and its link take the file's name, and renaming a zarr later breaks the link.
+   Start names with the date (YYMMDD or YYYYMMDD): Nikon files carry no
+   acquisition date, so the date is read from the name.
+
+2. Drag a folder (or a single image file) onto Convert_To_Zarr.bat.
+   Or double-click it and paste the path. Subfolders are included.
+
+3. Wait. For each file you will see:
+     copying to local disk...   the file is fetched from the server
+     converting...              no progress bar; a 30 GB file takes a few minutes
+     uploading zarr...          the finished zarr is sent to the zarr folder
+   A 28 GB Nikon file took about 20 minutes in total, mostly the two transfers.
+
+4. When it finishes, open the image list.
+
+Running it again on the same folder is safe: images already converted are
+skipped. To rebuild the Excel list without converting anything, double-click
+Convert_To_Zarr.bat and press Enter at the prompt.
+
+
+THE TWO EXCEL WORKBOOKS
+-----------------------
+They are separate files in separate places, set in the setup.
+
+  Zarr Image List.xlsx           READ-ONLY. On the server, shared by everyone.
+      Lab default: X:\nginx_share\exm\2026\Zarr Image List.xlsx
+      Rewritten on every run from the images themselves. One row per image in
+      the zarr folder: name (the Neuroglancer link), date acquired, microscope,
+      objective, channels, size in voxels, voxel size, total voxels, extent
+      and volume in micrometres, antibody labelling density, status, link
+      status and source file.
+      Nothing in it is typed by a person and nothing is copied in from your
+      notes. Do not type here; it would be lost on the next run.
+
+  Zarr Image List - Notes.xlsx   YOURS TO EDIT. In your own folder.
+      One row per image with the columns you fill in: ms ID, ROI, AB Label 1-3,
+      Pan, ExF, Date Analyzed, Notes, plus the image name, date and link so you
+      know which image each row is. The converter adds a row for each new image
+      and never reads or changes what you typed.
+      Four columns at the right are kept up to date for you on every run:
+      Voxels, Extent, Volume, and Link Status. Link Status is green "OK", or
+      red with what is wrong: not converted, view or image not reachable on
+      the web server, or nothing visible on the plane the link opens on.
+      Leave the header row (row 3) and the "Zarr Folder" column in place: that
+      column is how the converter knows which images are already listed.
+      Close this workbook before a conversion finishes. If it is open, new
+      images are added to it on the next run instead.
+
+Both workbooks also have a "Stitched" tab with the same columns. It lists the
+stitched volumes in the stitched folder chosen in the setup (Neuroglancer
+"precomputed" format). Those are only listed and linked, never converted. A
+dataset with no precomputed "info" file is listed without a link.
+
+Reading the list:
+  - The image name is the Neuroglancer link, in both workbooks: click it. A
+    name that is not a link has nothing to view; hover it for the reason.
+  - Column groups are colour coded; the Legend tab explains them.
+  - Channel names are written in the colour used in Neuroglancer:
+    the pan stain, and any image with only one channel, is white; a 405
+    nuclear stain is cyan; antibody channels take magenta, green, cyan,
+    yellow in order of laser, longest first. So two antibodies are always
+    magenta and green (publication practice: no red with green).
+  - A "~" before a channel (~561 DSRED) means the file did not record the
+    laser, so it was inferred from the dye name or emission. Check it.
+  - Hover over a Date Acquired cell to see where the date came from.
+  - Status: Converted (this run), On server (already there), FAILED.
+
+
+IN NEUROGLANCER
+---------------
+Each link opens with one layer per channel and the side panel already open on
+the first channel's Rendering tab.
+  - Change a colour:   each channel has a "colour" dropdown showing a coloured
+                       square. Click it and pick another square: white,
+                       magenta, green, cyan (shown as a blue square), yellow,
+                       red, orange.
+  - Change brightness: drag the ends of the "normalized" bar just below it.
+  - Hide a channel:    click the eye beside the layer's name.
+  - Invert:            each channel has an "invert" box (dark signal on a light
+                       background). It is for viewing one channel at a time;
+                       hide the others first.
+  - Back to the start:  tick a channel's "defaults" box. It ignores whatever the
+                       brightness bar, colour and other boxes are set to and
+                       shows the channel as it first opened. Untick it to get
+                       your own settings back. (Reopening the link from Excel
+                       resets everything, including position and zoom.)
+  - Finding antibodies: the pan stain opens dimmed (opacity 0.5) and antibody
+                       channels open with their brightness starting above the
+                       background haze, so spots stand out in colour on a grey
+                       structure. For stacks, the bottom-left 3D panel shows the
+                       whole block, tilted, as a maximum-intensity projection of
+                       the antibody channels. Drag in that panel to turn it.
+                       Turn it off per channel with "Volume rendering" set to
+                       "off" in that layer's Rendering tab. To see only the
+                       antibodies, hide the pan channel with its eye icon.
+  - Pan stain:         the channel detected as the pan stain opens with "white"
+                       selected and is marked "(pan)" in the image list. It is found
+                       from the file name if that says so (e.g. "pan488"),
+                       otherwise as the one channel where most pixels carry
+                       signal rather than scattered spots. If it picks wrong or
+                       misses, set the boxes yourself and use Save_NG_View.bat.
+A palette on the side lists the colour, brightness and opacity controls of
+every channel at once.
+
+Changes you make live in your browser's address bar only, until you save them.
+
+To keep a view (Save_NG_View.bat):
+  1. Set up the view in Neuroglancer.
+  2. Click the address bar, press Ctrl+A, then Ctrl+C.
+  3. Double-click Save_NG_View.bat and press a key. It shows the image, slice
+     and position it found, then asks two things; say yes to either or both:
+       - Make it your default link? The image's name in YOUR notes workbook
+         then opens this view. The shared image list is not changed.
+       - Log it as an ROI? It asks for a short name, a rating (1-5) and notes,
+         saves a crop of that spot to the sample's screenshot subfolder, and
+         adds a row to the screenshot log with a link that reopens the view.
+
+
+SCREENSHOTS AND THE SCREENSHOT LOG
+----------------------------------
+Double-click Log_Screenshots.bat. It asks which samples (Enter = all, or text
+the names must contain), then two questions you can answer once for all samples
+or be asked for each: make the standard screenshots? collect a rating and notes?
+
+Pictures are drawn from the image data, with a scale bar, using the colours and
+brightness of the image's Neuroglancer view. What a sample gets depends on what
+it is:
+  stack, one tile    XY, XZ and YZ maximum projections; the whole block as
+                     a tilted volume; planes at 5, 25, 50, 75 and 95% of the
+                     way through the sample
+  stack, montage     XY projection; tilted volume; overviews at those five
+                     depths; one crop over a tile seam
+The depths are measured through the sample, not the raw stack: planes before
+and after the tissue are left out first, so 5% is just inside one face.
+  flat montage       overview; five crops (centre and four corners)
+  flat single tile   the full-resolution image
+  200% close-ups     each image pixel drawn 2 x 2, over the middle of the
+                     data. Stacks get one at each of the five depths, always
+                     over the same spot; flat images get one.
+A "montage" is anything larger than one camera frame (2400 pixels). A "stack"
+has five or more planes. Other crops are only made at ROIs you save with
+Save_NG_View.bat.
+
+Everything goes in the screenshot folder chosen in the setup:
+  <sample name>\               one subfolder per sample, holding its PNGs,
+                               named <sample>_<view>_z<slice>.png
+  Zarr Screenshot Log.xlsx     one row per picture, sorted by sample then
+                               slice: sample, slice, rating, notes, view, type,
+                               and links to the picture, the sample's folder
+                               and the Neuroglancer view
+Slice numbers are as Neuroglancer shows them: the first plane is 0.
+Rating and Notes can be typed straight into the workbook; they are kept. Close
+it before running the .bat.
+
+Running it again: a sample that already has pictures only gets the ones it is
+missing (press Enter at that question), so when a new kind of picture is added
+to the tool, a re-run fills it in without redrawing the rest. "Redo" redraws
+all of a sample's standard pictures and keeps your ratings; "Skip" leaves
+those samples alone.
+
+Off unless asked for, because they produce a lot of files. Run from a command
+prompt in this folder:
+  Log_Screenshots.bat --every 10     also a plane every 10 slices of each stack
+  Log_Screenshots.bat --grid         also a crop of every tile of each montage
+
+
+ANTIBODY LABELLING EFFICIENCY
+-----------------------------
+Double-click Measure_AB_Efficiency.bat. It asks which samples (Enter = all, or
+text the names must contain) and the expansion factor (Enter = not known). It
+compares each antibody channel with the pan stain, which stands for "all the
+structure there is". The pan channel is the one the image list marks "(pan)".
+An image with no pan stain is skipped, with the reason.
+
+Every sample gets, per antibody channel:
+  PCC                  Pearson correlation of antibody with pan, inside the box
+                       that holds the structure, and inside the structure only
+  Manders M1, M2       share of the pan signal that has antibody on it; share of
+                       the antibody signal that sits on structure (specificity)
+  Coverage %           share of the structure mask the antibody mask covers
+  SBR, SNR             antibody in the structure against antibody away from it,
+                       in camera counts
+  SBR CV (3x3)         how much SBR varies over a 3 x 3 grid of the field; above
+                       0.25 the Staining column says UNEVEN
+  a fidelity map       green = structure with antibody, magenta = structure
+                       without it
+Stacks also get the penetration profile and its plot: pan and antibody
+brightness plane by plane, and their ratio (NPI, 1 = as at the surface). Both
+channels dim with depth for optical reasons, so it is the ratio that shows
+whether the antibody reached the middle. Z1/2 is the depth, in from each face,
+where the antibody falls to half its surface brightness. Planes above and below
+the gel are left out first.
+Montages also get the seam step, the vignetting (how much dimmer tile edges are
+than tile centres) and a plot of both. The tile grid is estimated.
+
+Everything goes in "Zarr AB Efficiency", beside the screenshot folder:
+  AB Efficiency Summary.csv    one row per sample and antibody channel. Rows are
+                               only ever added. Close it in Excel before a run.
+  <sample name>\               the sample's plots
+The structure masks are kept on this PC (not OneDrive), in
+%LOCALAPPDATA%\ZarrABEfficiency\masks. To move either folder, add
+analysis_folder = ... or mask_folder = ... under [paths] in settings.ini.
+
+A "NOT ABOVE BACKGROUND" warning in Notes means the antibody is no brighter in
+the structure than away from it: it did not label, or it labels sparse spots.
+Look at the image before using that row's coverage, Manders or penetration.
+
+Full resolution takes about a minute for a 40-plane stack and much longer for
+a deep one (it needs local scratch space of about 4 bytes per voxel, per
+channel). Options go after the .bat name in a command prompt:
+  --level 1         measure on a coarser level (faster)
+  --threshold li    Li's threshold instead of Otsu's
+  --radius-um 8     background (rolling ball) radius, micrometres as imaged
+  --pan 0           say which channel is the pan stain
+  --redo            measure samples already in the summary again
+  --napari NAME     open a sample with its structure mask for a look
+                    (needs napari: pip install "napari[all]")
+
+
+EXPANSION FACTOR FROM SYNAPSES
+------------------------------
+Double-click Measure_ExF.bat. It asks which samples (type part of the name,
+for example GluA2) and, before any work, whether each antibody it reads from
+the file names is a synaptic one. If it is, synapses carrying that antibody are
+listed first; if not, the antibody is ignored.
+
+It follows M'Saad, Cairns et al. (Nat. Biotechnol. 2025): the expansion factor
+is the distance between the presynaptic dense projections (DPs) and the
+postsynaptic density (PSD), centre to centre, divided by 82 nm. The paper drew
+the profiles by hand; here the program finds bright bars in the pan stain,
+takes the intensity profile across each one, fits two Gaussians, and keeps
+profiles that look like a synapse seen side-on.
+
+Everything goes in "Zarr Synapse ExF", beside the screenshot folder:
+  Synapse Log.xlsx       Synapses: the 60 best synapses of each sample, with
+                         the distance, the expansion factor, a link to the
+                         picture and a link that opens Neuroglancer on it.
+                         Summary: the expansion factor per sample.
+                         Method: exactly how it was measured, and the caveats.
+  <sample name>\         a picture of each logged synapse (pan, antibody,
+                         overlay with scale bar, profile with the fit), a
+                         contact sheet of all of them, and
+                         <sample>_synapses.csv with every synapse found.
+
+To accept or reject: open the contact sheet beside the log, type Y or N under
+Accept (the column has a dropdown; Notes is yours too), save, close, and run
+Measure_ExF.bat again. The Summary then gives "ExF, accepted" from your Y rows
+only. Your answers are kept on every run.
+
+Which number to use: "ExF, accepted" once you have reviewed, otherwise
+"ExF, AB+ only". "ExF, all found" also contains pairs of membranes that look
+like synapses to the program and read high (25-30x); do not use it on its own.
+
+Left out: samples with SZ or "control" in the name, and repeats named
+number_number (Sample1_2) unless the number ends an antibody's name
+(Homer1_2) or a grid size (3x3_1 stays: 3x3 marks the 2D overview montage). Antibody names it knows are in the ANTIBODIES table at the top of
+synapse_exf.py; add yours there.
+  Measure_ExF.bat GluA2 --max-planes 50    use every plane of a stack (default 12)
+
+
+THE GALLERY
+-----------
+Double-click Make_Gallery.bat. It builds "2026 AC Gallery.html" in the screenshot
+folder from the pictures already there and opens it in your browser.
+  - One card per sample, showing its tilted volume (or its overview).
+  - Search by name, channel or notes; filter by type; sort by name, date,
+    antibody density or rating; tick "rated only".
+  - Click a card for all of that sample's pictures, its details, and a button
+    that opens it in Neuroglancer. Left and right arrow keys move between
+    samples; Esc closes. Click a picture for the full-size version.
+  - If synapses were measured for a sample (Measure_ExF.bat), its page ends
+    with a "Synapses" section: the contact sheet, then each synapse panel in
+    the order of the Synapse Log. They always come after the other pictures.
+It only shows what exists: samples with no pictures yet are left out. Run the
+.bat again after new screenshots, ratings or notes; only new pictures take time.
+The page is a single file plus a "_gallery_thumbs" folder of small copies, both
+inside the screenshot folder, so it works wherever that folder is synced.
+
+
+WHERE THINGS END UP
+-------------------
+In the zarr folder:
+  <image name>.zarr      one per image
+  _ng_states\            small files the longer Neuroglancer links point to.
+                         Do not delete or move them.
+  _conversion_log.txt    full converter output, for troubleshooting
+
+The Neuroglancer links only work for zarrs inside nginx_share, because that is
+the folder the lab web server publishes.
+
+
+IF SOMETHING GOES WRONG
+-----------------------
+"NGFF-Converter is not installed"
+    Install it (see above), then run First_Time_Setup.bat.
+
+"Cannot reach the zarr folder"
+    The X: drive is not connected. Reconnect it and run again.
+
+A file shows FAILED
+    The reason is written for you in the Notes column of your notes workbook,
+    with the date, and as a comment on the Status cell of the image list.
+    The full message is in _conversion_log.txt in the zarr folder. The usual
+    cause is a file Bio-Formats cannot read or a file that is incomplete.
+    The failure stays listed until that file converts successfully.
+
+"only N GB free locally ... converting directly on the network"
+    Not an error, but slow. Free up space or choose a scratch folder on a
+    bigger local drive with First_Time_Setup.bat.
+
+The image opens black or the wrong brightness in Neuroglancer
+    Click the layer, then use "Auto range" on its intensity control.
+
+A channel has the wrong colour
+    The laser was misread. Colours and dye names are set in the tables at the
+    top of convert_to_zarr.py (LASER_COLORS and DYE_LASERS).
+
+Dimensions look wrong (Z and channels swapped, one zarr per TIFF tile)
+    The source file's own metadata is missing or wrong, which mostly happens
+    with plain TIFFs. Re-export as OME-TIFF from the acquisition software.
+
+To convert an image again, delete its .zarr folder and run the converter.
+

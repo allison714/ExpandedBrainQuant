@@ -1,0 +1,9 @@
+# Keep line endings as written: the .py files are LF, the .bat files must stay CRLF.
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.ini text eol=lf
+*.json text eol=lf
+*.bat text eol=crlf
+*.xlsx binary
