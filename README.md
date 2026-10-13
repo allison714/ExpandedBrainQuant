@@ -1,6 +1,6 @@
-# pan-exm-tools
+# ExpandedBrainQuant
 
-Windows tools for pan-ExM (pan-expansion microscopy) image data in the Kuan Lab: convert microscope files to OME-Zarr on the lab's Neuroglancer server, keep an Excel image list with one-click viewer links, export QC screenshots and a browsable gallery, and measure the expansion factor and antibody labelling from the synapses in the pan stain.
+Quantification of pan-expansion-microscopy brain volumes. This repository holds the Windows tools used in 2026 for pan-ExM (pan-expansion microscopy) image data in the Kuan Lab: convert microscope files to OME-Zarr on the lab's Neuroglancer server, keep an Excel image list with one-click viewer links, export QC screenshots and a browsable gallery, and measure the expansion factor and antibody labelling from the synapses in the pan stain.
 
 Everything is Python 3.10+ driven by double-clickable `.bat` files. The `.bat` files install the Python packages they need on first run (see [requirements.txt](requirements.txt)).
 
