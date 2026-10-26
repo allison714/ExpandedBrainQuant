@@ -113,6 +113,8 @@ CONVERTER_DOWNLOAD = "https://github.com/glencoesoftware/NGFF-Converter/releases
 # Local folder name that the lab web server publishes, and the URL it maps to.
 SERVER_FOLDER = "nginx_share"
 SERVER_URL = "https://neuroglancer.kuanlab.yale.edu/data/"
+# The same folder at the address for sharing pages and pictures with people (the folder name is kept in it).
+SHARE_URL = "https://images.kuanlab.yale.edu/nginx_share/"
 NG_VIEWER = "https://neuroglancer-demo.appspot.com/"
 
 B2R_MAIN = "com.glencoesoftware.bioformats2raw.Converter"
@@ -125,7 +127,7 @@ FAILED_NAME = "_failed.json"  # failures are remembered here until the file conv
 
 def load_settings():
     """Apply settings.ini (written by First_Time_Setup.bat) over the defaults above."""
-    global DEFAULT_OUT, DEFAULT_LIST, DEFAULT_NOTES, DEFAULT_STITCHED, DEFAULT_SHOTS, DEFAULT_WORK, CONVERTER_HOME, SERVER_FOLDER, SERVER_URL, NG_VIEWER
+    global DEFAULT_OUT, DEFAULT_LIST, DEFAULT_NOTES, DEFAULT_STITCHED, DEFAULT_SHOTS, DEFAULT_WORK, CONVERTER_HOME, SERVER_FOLDER, SERVER_URL, SHARE_URL, NG_VIEWER
     if not SETTINGS_FILE.is_file():
         return False
     cfg = configparser.ConfigParser(interpolation=None)
@@ -140,6 +142,7 @@ def load_settings():
     CONVERTER_HOME = get("paths", "ngff_converter", CONVERTER_HOME)
     SERVER_FOLDER = get("server", "served_folder", SERVER_FOLDER).lower()
     SERVER_URL = get("server", "served_url", SERVER_URL).rstrip("/") + "/"
+    SHARE_URL = get("server", "share_url", SHARE_URL).rstrip("/") + "/"
     NG_VIEWER = get("server", "neuroglancer", NG_VIEWER).rstrip("/") + "/"
     return True
 
@@ -152,7 +155,7 @@ def save_settings():
         "screenshot_folder": DEFAULT_SHOTS,
         "work_folder": DEFAULT_WORK, "ngff_converter": CONVERTER_HOME,
     }
-    cfg["server"] = {"served_folder": SERVER_FOLDER, "served_url": SERVER_URL, "neuroglancer": NG_VIEWER}
+    cfg["server"] = {"served_folder": SERVER_FOLDER, "served_url": SERVER_URL, "share_url": SHARE_URL, "neuroglancer": NG_VIEWER}
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
         f.write("; Settings for the Zarr Batch Converter. Run First_Time_Setup.bat to change them,\n"
                 "; or edit this file in Notepad.\n"
@@ -952,6 +955,17 @@ def server_url_for(path):
         return None
     rel = parts[lowered.index(SERVER_FOLDER) + 1:]
     return SERVER_URL + "/".join(urllib.parse.quote(p) for p in rel)
+
+
+def share_url_for(path):
+    """The address to give people for a file under the web-served folder (SHARE_URL), else None.
+    Same file as server_url_for, on the lab's images address."""
+    parts = Path(path).parts
+    lowered = [p.lower() for p in parts]
+    if SERVER_FOLDER not in lowered:
+        return None
+    rel = parts[lowered.index(SERVER_FOLDER) + 1:]
+    return SHARE_URL + "/".join(urllib.parse.quote(p) for p in rel)
 
 
 def build_state(source_url, info, channels, ranges, centre=None, stats=None):

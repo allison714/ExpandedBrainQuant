@@ -13,6 +13,7 @@ WHAT IS IN THIS FOLDER
   Save_NG_View.bat       Keeps a Neuroglancer view: your default link and/or an ROI.
   Log_Screenshots.bat    Exports QC pictures per sample and keeps the screenshot log.
   Make_Gallery.bat       Builds a browser page for looking through every sample.
+  Make_Gallery_Protected.bat  The same as one password-protected file to share.
   Measure_AB_Efficiency.bat  Measures antibody labelling against the pan stain.
   convert_to_zarr.py     The programs the .bat files run. Leave them beside
   roi_log.py             the .bat files.
@@ -347,6 +348,52 @@ It only shows what exists: samples with no pictures yet are left out. Run the
 .bat again after new screenshots, ratings or notes; only new pictures take time.
 The page is a single file plus a "_gallery_thumbs" folder of small copies, both
 inside the screenshot folder, so it works wherever that folder is synced.
+
+
+SHARING THE GALLERY
+-------------------
+Make_Gallery.bat now prints the address to share and puts it on the clipboard
+(paste with Ctrl+V). It uses the lab's images address, which is the same server
+folder as the Neuroglancer address:
+  https://images.kuanlab.yale.edu/nginx_share/exm/2026/gallery/Zarr%20Screenshots/2026%20AC%20Gallery.html
+The address prefix is share_url in settings.ini, under [server].
+
+That copy is OPEN: anyone with the address can see it, and the server lists its
+folders, so anyone with the server's name can find it.
+
+Password-protected copy: double-click Make_Gallery_Protected.bat. It asks for a
+password (8 characters or more, typed twice, hidden), builds the gallery as one
+file with every picture inside it, encrypts it (AES-256 with a key stretched
+from the password, decrypted in the visitor's browser), writes it to
+  X:
+ginx_share\exm6\zarr6 AC Gallery.html
+and puts its address on the clipboard. Visitors see only a password box. Send
+the password separately from the link (a different message or channel).
+  - It holds thumbnails, not full-size pictures, and the Neuroglancer buttons
+    open the image data, which stays public on the server.
+  - It does not update the open mirror in X:
+ginx_share\exm6\gallery\.
+    If that mirror is there, the same pictures are still reachable openly: ask
+    the server admin to protect or remove it (below), or delete it yourself.
+  - Running Make_Gallery.bat (with --server) afterwards replaces the protected
+    file with an open one. Run the protected one again to lock it.
+  - Unattended runs can pass the password in the GALLERY_PASSWORD environment
+    variable instead of typing it.
+
+Real server-side protection (needs the server admin): a password on the
+gallery folder in nginx, covering both host names, with folder listing off:
+    location /nginx_share/exm/2026/gallery/ {      # images.kuanlab.yale.edu
+        auth_basic "Kuan Lab gallery";
+        auth_basic_user_file /etc/nginx/gallery.htpasswd;
+        autoindex off;
+    }
+    location /data/exm/2026/gallery/ {             # neuroglancer.kuanlab.yale.edu
+        auth_basic "Kuan Lab gallery";
+        auth_basic_user_file /etc/nginx/gallery.htpasswd;
+        autoindex off;
+    }
+Leave the zarr and Stitched Precomputed NG folders without a password:
+Neuroglancer cannot send one, so the image links would stop working.
 
 
 WHERE THINGS END UP

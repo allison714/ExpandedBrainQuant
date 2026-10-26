@@ -517,13 +517,14 @@ document.querySelector("header").insertAdjacentHTML("afterend", `<details id="se
 </body>"""
 
 
-def server_copy(base, samples):
+def server_copy(base, samples, password=None):
     """The gallery as ONE file in the zarr folder on the lab server, so that anyone who can reach
     the server can open it, from the drive or from its web address, with nothing else installed.
 
     Every picture is carried inside the page as a small JPEG; the full-size pictures stay on
     this PC and are not linked. The Neuroglancer links work as usual, since they already
-    point at the server. Returns (path, web address).
+    point at the server. With a password the file holds only the encrypted page (see lock).
+    Returns (path, address to share).
     """
     import base64
     import io
@@ -559,8 +560,8 @@ def server_copy(base, samples):
     page = page.replace("__TITLE__", html.escape(title)).replace(
         "</body>", SERVER_EXTRA.replace("__FULL__", html.escape(str(base / GALLERY_NAME)).replace("\\", "\\\\")))
     out = Path(core.DEFAULT_OUT) / GALLERY_NAME
-    out.write_text(page, encoding="utf-8")
-    return out, core.server_url_for(out)
+    out.write_text(lock(page, password, GALLERY_TITLE) if password else page, encoding="utf-8")
+    return out, core.share_url_for(out)
 
 
 MIRROR_FOLDER = "gallery"   # beside the zarr folder on the server: the full copy of the gallery's folders
@@ -586,7 +587,96 @@ def mirror(base):
                                "/NFL", "/NDL", "/NP", "/NJH", "/XF", "~$*", "/XD", "_measured"], capture_output=True, text=True)
         tail = [line.strip() for line in done.stdout.splitlines() if line.strip().startswith(("Files", "Bytes"))]
         print(f"   {folder.name}: " + ("; ".join(" ".join(t.split()) for t in tail) if done.returncode < 8 else f"robocopy failed ({done.returncode})"))
-    return core.server_url_for(target / base.name / GALLERY_NAME)
+    return core.share_url_for(target / base.name / GALLERY_NAME)
+
+
+# --------------------------------------------------------------------------- sharing
+
+PBKDF2_ROUNDS = 600_000      # key stretching for the password: slows guessing, about half a second in a browser
+
+LOCKED_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow"><title>__TITLE__</title>
+<style>
+:root { color-scheme: light dark; --bg:#111418; --text:#e6e9ee; --dim:#9aa4b2; --line:#2c333d; --accent:#6db3ff; }
+@media (prefers-color-scheme: light) { :root { --bg:#ffffff; --text:#1b1f24; --dim:#5b6470; --line:#d9dee5; --accent:#0b5cad; } }
+body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text); font:15px/1.5 Arial, sans-serif; }
+main { width:min(360px, calc(100vw - 32px)); }
+h1 { font-size:20px; margin:0 0 6px; } p { color:var(--dim); margin:0 0 16px; }
+input, button { width:100%; box-sizing:border-box; font:inherit; padding:10px 12px; border-radius:6px; border:1px solid var(--line); }
+input { background:transparent; color:var(--text); margin-bottom:10px; }
+button { background:var(--accent); color:#fff; border:none; cursor:pointer; }
+#m { margin-top:12px; min-height:1.5em; }
+</style></head><body><main>
+<h1>__TITLE__</h1><p>This gallery is password protected.</p>
+<form id="f"><input id="p" type="password" autocomplete="current-password" placeholder="Password" autofocus required><button>Open</button></form>
+<p id="m"></p></main>
+<script>
+(() => {   // its own scope: names declared at the top level would survive document.open and clash with the gallery's own
+const SALT = "__SALT__", IV = "__IV__", ROUNDS = __ROUNDS__, DATA = "__DATA__";
+const bytes = async s => new Uint8Array(await (await fetch("data:application/octet-stream;base64," + s)).arrayBuffer());
+document.getElementById("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const m = document.getElementById("m");
+  if (!window.crypto || !crypto.subtle) { m.textContent = "This browser cannot open protected pages here (it needs https)."; return; }
+  m.textContent = "Opening...";
+  try {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(document.getElementById("p").value), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: await bytes(SALT), iterations: ROUNDS, hash: "SHA-256"},
+                                              base, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
+    const page = await crypto.subtle.decrypt({name: "AES-GCM", iv: await bytes(IV)}, key, await bytes(DATA));
+    document.open(); document.write(new TextDecoder().decode(page)); document.close();
+  } catch (err) { m.textContent = "Wrong password."; }
+});
+})();
+</script></body></html>"""
+
+
+def lock(page, password, title):
+    """The page encrypted with the password (AES-256-GCM, key from PBKDF2-SHA256), inside a small page
+    that asks for it and decrypts it in the browser. Nothing readable is left in the file without the
+    password; the encryption is standard, so it is as strong as the password is."""
+    import base64
+    import os
+
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+    salt, iv = os.urandom(16), os.urandom(12)
+    key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=PBKDF2_ROUNDS).derive(password.encode("utf-8"))
+    sealed = AESGCM(key).encrypt(iv, page.encode("utf-8"), None)
+    text = lambda b: base64.b64encode(b).decode("ascii")
+    return (LOCKED_PAGE.replace("__TITLE__", html.escape(title)).replace("__SALT__", text(salt)).replace("__IV__", text(iv))
+            .replace("__ROUNDS__", str(PBKDF2_ROUNDS)).replace("__DATA__", text(sealed)))
+
+
+def ask_password():
+    """The gallery password: from GALLERY_PASSWORD if set (for unattended runs), else typed twice."""
+    import getpass
+    import os
+
+    if os.environ.get("GALLERY_PASSWORD"):
+        return os.environ["GALLERY_PASSWORD"]
+    while True:
+        first = getpass.getpass("Password for the shared gallery (typing is hidden): ")
+        if len(first) < 8:
+            print("   Use at least 8 characters.")
+            continue
+        if getpass.getpass("Type it again: ") == first:
+            return first
+        print("   The two did not match. Try again.")
+
+
+def to_clipboard(text):
+    """Put a link on the clipboard: long links break when copied out of a wrapped console line."""
+    import subprocess
+
+    try:
+        subprocess.run(["clip"], input=text.encode("utf-16-le"), check=True)
+        return True
+    except (OSError, subprocess.CalledProcessError):
+        return False
 
 
 def main():
@@ -609,16 +699,26 @@ def main():
             (base / old).unlink()
     print(f"\n{len(samples)} samples, {sum(len(s['pictures']) for s in samples)} images")
     print(f"Gallery: {out}")
-    if "--server" in sys.argv:
+    password = ask_password() if "--password" in sys.argv else None
+    shared = None
+    if "--server" in sys.argv or password:
         if Path(core.DEFAULT_OUT).is_dir():
-            print("\nPacking the server copy (every image goes inside one file)...")
-            copy, address = server_copy(base, samples)
-            print(f"Server copy: {copy}  ({copy.stat().st_size / 1e6:.0f} MB)\nWeb address: {address}")
+            print("\nPacking the server copy (every image goes inside one file)" + (", locked with the password..." if password else "..."))
+            copy, shared = server_copy(base, samples, password)
+            print(f"Server copy: {copy}  ({copy.stat().st_size / 1e6:.0f} MB){'  PASSWORD PROTECTED' if password else ''}\nShare: {shared}")
         else:
             print(f"\nServer copy not made: cannot reach {core.DEFAULT_OUT}")
     if "--mirror" in sys.argv and Path(core.DEFAULT_OUT).is_dir():
-        print("\nMirroring the gallery's folders to the server (only what changed is sent)...")
-        print(f"Full gallery on the server: {mirror(base)}")
+        if password:
+            # the mirror is the plain folders with full-size pictures: it would put back in the open what the
+            # password is meant to keep out, so a protected run leaves it alone (an earlier mirror stays as it was)
+            print("\nMirror NOT updated: it is not password protected and would publish the full-size pictures.")
+        else:
+            print("\nMirroring the gallery's folders to the server (only what changed is sent)...")
+            shared = mirror(base)
+            print(f"Full gallery on the server: {shared}")
+    if shared and to_clipboard(shared):
+        print("(The link to share is on the clipboard: paste it with Ctrl+V.)")
     return out
 
 

@@ -11,6 +11,7 @@ Everything is Python 3.10+ driven by double-clickable `.bat` files. The `.bat` f
 | [ZarrBatchConverter/](ZarrBatchConverter/) | The main toolbox. Conversion, image list, Neuroglancer links, screenshots, gallery, and every analysis script. All the other folders call into it. | [QUICKSTART.txt](ZarrBatchConverter/QUICKSTART.txt) |
 | [ExF_Quantification/](ExF_Quantification/) | Expansion-factor measurement from synapses (DP–PSD distance ÷ 81.9 nm). A launcher plus the write-up of the method, what was taken from the paper, and what to cite. | [README.md](ExF_Quantification/README.md), [METHODS_AND_CREDITS.md](ExF_Quantification/METHODS_AND_CREDITS.md) |
 | [NGLinkGenerator/](NGLinkGenerator/) | The earlier, standalone tool: walk a folder of OME-Zarr datasets served over HTTP and write an Excel sheet of Neuroglancer URLs. Superseded by the converter's image list but still works on its own. | [README.md](NGLinkGenerator/README.md) |
+| [ZarrBatchConverter/gallery_report/](ZarrBatchConverter/gallery_report/) | Generators for the two PDF reports of 16 October 2026: `charts.py` + `build_report.py` (gallery summary report) and `diagram.py` + `build_setup_doc.py` (analysis set-up document). Figures are not committed; see its README. | [README.txt](ZarrBatchConverter/gallery_report/README.txt) |
 | [scripts/](scripts/) | One-off drivers. `redo_figures.py` re-runs the whole figure pipeline (ExF → pan-ASLM synapses → training export → gallery). | |
 | [../docs/notes/](../docs/notes/) | Working notes on the server layout, the OME-Zarr/Neuroglancer gotchas, and the analysis decisions, written during development. The place to look for *why* something is the way it is. | [../docs/README.md](../docs/README.md) |
 | [data/](data/) | Small result caches that are not on the lab server: per-sample measurement JSONs from the SZ-vs-AC and WT-vs-KO comparisons, the pan-ASLM sampling plan, and the image-list notes workbook. | |
@@ -31,6 +32,7 @@ All of these live in `ZarrBatchConverter/`. Double-click the `.bat`; the `.py` b
 | 5 | `Measure_AB_Efficiency.bat` | Antibody labelling against the pan stain: PCC, Manders, coverage, SBR, penetration with depth. |
 | 6 | `Compare_AB.bat` / `Double_Label.bat` | Compare two sample sets antibody by antibody; test double-labelled samples for bleed-through and labelling efficiency. |
 | 7 | `Make_Gallery.bat` | Builds the one-page HTML gallery of every sample (with ExF, resolution and labelling numbers) and can mirror it to the server. |
+| 7b | `Make_Gallery_Protected.bat` | The same gallery as one password-protected file (AES-256-GCM, unlocked in the browser) for sharing outside the lab; skips the open server mirror. |
 
 ### Analysis modules without a `.bat`
 

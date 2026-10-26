@@ -1,7 +1,8 @@
 """
 Labelling efficiency of single-labelled samples, antibody against antibody.
 
-  single_label.py [text]      the samples whose names contain the text (all when left out)
+  single_label.py [text]            single-labelled samples whose names contain the text (all when left out)
+  single_label.py --multi [text]    the same test on every antibody channel of double- and triple-labelled samples
 
 A sample is single-labelled when it has one antibody channel (every channel that is not the
 pan stain or a nuclear stain). With one antibody there is no second label to confirm a
@@ -36,8 +37,14 @@ across animals. Laser power and exposure are not in the files; a dim image lower
 Left out: single tiles ('_F0'), PFF and bead samples, and samples with fewer than MIN_SYNAPSES
 synapses.
 
-Output, in 'Zarr Comparisons\\Single Label': 'Single Label - Per Sample.csv', 'Single Label -
-Per Antibody.csv', 'Single Label - Efficiency.png'.
+With --multi each antibody channel of a sample is measured on its own, exactly as above, and
+the channels are compared by imaging day: which antibody is on which channel is shown where
+antibody_channels.py knows it, otherwise the channel is named with the antibodies in the file
+name ('637 Cy5 (NR1 or Homer1)'). double_label.py asks the other question for these samples:
+how often the two labels are on the same synapse, and whether one channel bleeds into the other.
+
+Output, in 'Zarr Comparisons\\Single Label' (or 'Multi Label'): '<Single or Multi> Label - Per
+Sample.csv', '... - Per Antibody.csv', '... - Efficiency.png'.
 """
 
 import csv
@@ -49,6 +56,7 @@ from pathlib import Path
 import numpy as np
 
 import ab_efficiency as eff
+import antibody_channels
 import channel_check
 import compare_ab
 import convert_to_zarr as core
@@ -72,8 +80,9 @@ def set_of(name):
     return ""
 
 
-def measure_sample(name, zarr_dir, out_root, csv_path):
-    """Per-synapse arrays for one sample: antibody at the synapse and at its four decoys, in noise-widths."""
+def measure_sample(name, zarr_dir, out_root, csv_path, ab_c=None, logged_column="AB Signal (σ)"):
+    """Per-synapse arrays for one antibody channel of one sample (the only one when ab_c is None):
+    antibody at the synapse and at its four decoys, in noise-widths."""
     from scipy import ndimage
 
     with open(csv_path, newline="", encoding="utf-8-sig") as f:
@@ -85,7 +94,7 @@ def measure_sample(name, zarr_dir, out_root, csv_path):
     channels, pan, antibodies, _ = eff.channel_roles(name, zarr_dir, out_root, info)
     raw = eff.open_level(series, info, 0)                              # lazy (c, z, y, x)
     um = eff.voxel_um(info, raw.shape[1:])[2]
-    ab_c = antibodies[0]
+    ab_c = antibodies[0] if ab_c is None else ab_c
     px_nm = syn.EXF_NOMINAL / (um * 1000)                              # pixels per nm of tissue, at the nominal expansion
     half, away = FOOT_HALF_PX_NM * px_nm, DECOY_NM * px_nm
     ny, nx = raw.shape[2:]
@@ -127,7 +136,7 @@ def measure_sample(name, zarr_dir, out_root, csv_path):
             step = away / math.sqrt(2)
             on.append(here)
             decoy.append([reading(a * step, b * step) for a, b in ((1, 1), (1, -1), (-1, 1), (-1, -1))])
-            logged.append(float(r["AB Signal (σ)"]) if r.get("AB Signal (σ)") not in (None, "") else np.nan)
+            logged.append(float(r[logged_column]) if r.get(logged_column) not in (None, "") else np.nan)
             clean.append(float(r["Fit R²"]) * float(r["Dip"]))
             field.append(r["Field of View"])
     if len(on) < MIN_SYNAPSES:
@@ -163,11 +172,12 @@ def pooled(samples, rng):
         len(names), len(on), float(np.median(on[on >= SIGMAS])) if (on >= SIGMAS).any() else np.nan
 
 
-def run(text):
+def run(text, multi=False):
     core.load_settings()
     out_root = Path(core.DEFAULT_OUT)
     synapses = Path(core.DEFAULT_SHOTS).parent / "Zarr Synapse ExF"
-    base = Path(core.DEFAULT_SHOTS).parent / "Zarr Comparisons" / FOLDER
+    kind = "Multi Label" if multi else FOLDER
+    base = Path(core.DEFAULT_SHOTS).parent / "Zarr Comparisons" / kind
     base.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(0)
     measured, per_sample = [], []
@@ -180,40 +190,49 @@ def run(text):
         except Exception as e:
             print(f"{name}: skipped ({e})", flush=True)
             continue
-        if len(antibodies) != 1:
+        if (len(antibodies) < 2) if multi else (len(antibodies) != 1):
             continue
-        key = compare_ab.antibody_key(name) or "not named"
-        line = {"Sample": name, "Antibody": key, "Set": set_of(name), "Channel": channels[antibodies[0]]["label"]}
+        named = antibody_channels.for_sample(name, channels, antibodies)
+        in_name = " or ".join(label for label, _ in syn.antibodies_in(name))
+        by_laser = sorted(antibodies, key=lambda c: (-(channels[c].get("laser") or 0), c))     # AB1, AB2 as synapse_exf.py numbers them
         path = synapses / name / f"{name}_synapses.csv"
-        got = None
-        if pan is None:
-            line["Notes"] = "no pan stain: synapses cannot be found, efficiency not measured"
-        elif not path.is_file():
-            line["Notes"] = "not in the Synapse Log (left out there, or no synapses found)"
-        else:
-            got = measure_sample(name, zarr_dir, out_root, path)
-            if got is None:
-                line["Notes"] = f"fewer than {MIN_SYNAPSES} synapses"
-        if got:
-            every, chance = numbers(got["on"], got["decoy"]), None
-            keep = got["clean"] >= np.percentile(got["clean"], 100 * 2 / 3)
-            best = numbers(got["on"][keep], got["decoy"][keep])
-            agree = float(np.mean((got["on"] >= SIGMAS) == (got["logged"] >= SIGMAS))) if np.isfinite(got["logged"]).all() else np.nan
-            line.update({"Pixel (nm, as imaged)": round(got["pixel_nm"], 1), "Synapses": len(got["on"]), "Fields of View": len(set(got["field"])),
-                         "Labelled (%)": round(every[0], 1), "By Chance (%)": round(every[1], 1), "Efficiency (%)": round(every[2], 1),
-                         "Enrichment (× chance)": round(every[3], 1) if np.isfinite(every[3]) else None,
-                         "Efficiency, Clearest Third (%)": round(best[2], 1), "Labelled, Clearest Third (%)": round(best[0], 1),
-                         "Signal at Labelled Synapses (noise-widths)": round(float(np.median(got["on"][got["on"] >= SIGMAS])), 1) if (got["on"] >= SIGMAS).any() else None,
-                         "Labelled in the Synapse Log (%)": round(100 * float((got["logged"] >= SIGMAS).mean()), 1),
-                         "Agreement with the Synapse Log (%)": round(100 * agree, 1)})
-            measured.append({**got, "Sample": name, "Antibody": key, "Set": set_of(name)})
-            print(f"{name}: {key}  labelled {every[0]:.0f}%, by chance {every[1]:.0f}%, efficiency {every[2]:.0f}% "
-                  f"(clearest third {best[2]:.0f}%), {len(got['on'])} synapses", flush=True)
-        else:
-            print(f"{name}: {key}  {line['Notes']}", flush=True)
-        per_sample.append(line)
+        for ab_c in (by_laser if multi else antibodies):
+            if multi:
+                key = named[ab_c][0] if named.get(ab_c, ("",))[0] else channels[ab_c]["label"] + (f" ({in_name})" if in_name else "")
+            else:
+                key = compare_ab.antibody_key(name) or "not named"
+            line = {"Sample": name, "Antibody": key, "Set": set_of(name), "Channel": channels[ab_c]["label"]}
+            got = None
+            if pan is None:
+                line["Notes"] = "no pan stain: synapses cannot be found, efficiency not measured"
+            elif not path.is_file():
+                line["Notes"] = "not in the Synapse Log (left out there, or no synapses found)"
+            else:
+                column = {0: "AB Signal (σ)", 1: "AB2 Signal (σ)"}.get(by_laser.index(ab_c), "")
+                got = measure_sample(name, zarr_dir, out_root, path, ab_c, column)
+                if got is None:
+                    line["Notes"] = f"fewer than {MIN_SYNAPSES} synapses"
+            if got:
+                every, chance = numbers(got["on"], got["decoy"]), None
+                keep = got["clean"] >= np.percentile(got["clean"], 100 * 2 / 3)
+                best = numbers(got["on"][keep], got["decoy"][keep])
+                known = np.isfinite(got["logged"])
+                agree = float(np.mean((got["on"][known] >= SIGMAS) == (got["logged"][known] >= SIGMAS))) if known.any() else np.nan
+                line.update({"Pixel (nm, as imaged)": round(got["pixel_nm"], 1), "Synapses": len(got["on"]), "Fields of View": len(set(got["field"])),
+                             "Labelled (%)": round(every[0], 1), "By Chance (%)": round(every[1], 1), "Efficiency (%)": round(every[2], 1),
+                             "Enrichment (× chance)": round(every[3], 1) if np.isfinite(every[3]) else None,
+                             "Efficiency, Clearest Third (%)": round(best[2], 1), "Labelled, Clearest Third (%)": round(best[0], 1),
+                             "Signal at Labelled Synapses (noise-widths)": round(float(np.median(got["on"][got["on"] >= SIGMAS])), 1) if (got["on"] >= SIGMAS).any() else None,
+                             "Labelled in the Synapse Log (%)": round(100 * float((got["logged"][known] >= SIGMAS).mean()), 1) if known.any() else None,
+                             "Agreement with the Synapse Log (%)": None if np.isnan(agree) else round(100 * agree, 1)})
+                measured.append({**got, "Sample": name, "Antibody": key, "Set": set_of(name)})
+                print(f"{name}: {key}  labelled {every[0]:.0f}%, by chance {every[1]:.0f}%, efficiency {every[2]:.0f}% "
+                      f"(clearest third {best[2]:.0f}%), {len(got['on'])} synapses", flush=True)
+            else:
+                print(f"{name}: {key}  {line['Notes']}", flush=True)
+            per_sample.append(line)
     if not measured:
-        sys.exit("No single-labelled sample with synapses.")
+        sys.exit(f"No {'multi' if multi else 'single'}-labelled sample with synapses.")
 
     groups = {}
     for m in measured:
@@ -237,8 +256,8 @@ def run(text):
             w.writeheader()
             w.writerows(table)
 
-    write("Single Label - Per Sample.csv", per_sample)
-    write("Single Label - Per Antibody.csv", per_antibody)
+    write(f"{kind} - Per Sample.csv", per_sample)
+    write(f"{kind} - Per Antibody.csv", per_antibody)
 
     order = sorted(per_antibody, key=lambda r: -r["Efficiency, Clearest Third (%)"])
     fig, axes = eff.figure(1, 2, figsize=(16, max(4.5, 0.42 * len(order) + 2.2)), sharey=True)
@@ -264,9 +283,9 @@ def run(text):
         if any(r["Set"] == set_ for r in order):
             axes[1].scatter([], [], color=c, s=70, label=set_ or "No genotype in the name")
     axes[1].legend(frameon=False, labelcolor=eff.INK, fontsize=9, loc="lower right")
-    fig.suptitle("Single-label antibodies: share of synapses labelled, beyond chance", color=eff.INK, fontsize=11, x=0.01, ha="left")
+    fig.suptitle(("Double- and triple-label samples, each antibody channel" if multi else "Single-label antibodies") + ": share of synapses labelled, beyond chance", color=eff.INK, fontsize=11, x=0.01, ha="left")
     fig.tight_layout()
-    eff.save(fig, base / "Single Label - Efficiency.png")
+    eff.save(fig, base / f"{kind} - Efficiency.png")
     print()
     for r in order:
         print(f"   {r['Antibody']:18s} {r['Set']:3s} {r['Imaged']:7s} labelled {r['Labelled (%)']:5.1f}%  chance {r['By Chance (%)']:5.1f}%  "
@@ -277,4 +296,5 @@ def run(text):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1] if len(sys.argv) > 1 else "")
+    words = [a for a in sys.argv[1:] if a != "--multi"]
+    run(words[0] if words else "", multi="--multi" in sys.argv)
