@@ -553,29 +553,31 @@ SERVER_SYNAPSE_PX = 360   # ...one synapse's panel
 # this PC, so links with nowhere to go are hidden and do nothing.
 SERVER_EXTRA = """<style>a.btn[href=""], a.pic[href=""] { display:none; } a[href=""] { cursor:default; }
 #servernote { background:#2a2410; border-bottom:1px solid #6b5a1e; color:#f0e2b0; padding:8px 18px; font-size:13px; line-height:1.5; }
-#servernote b { color:#ffd54f; } #servernote summary { cursor:pointer; }</style>
+#servernote b { color:#ffd54f; } #servernote summary { cursor:pointer; } #servernote a { color:#ffd54f; }</style>
 <script>
 document.addEventListener("click", e => { if (e.target.closest('a[href=""]')) e.preventDefault(); }, true);
 document.querySelector("header").insertAdjacentHTML("afterend", `<details id="servernote"><summary><b>Server copy.</b>
-  Small images only; a few things from the full gallery are not here. Click for the list.</summary>
-  <b>Works here:</b> search, filters and sorting; every sample's details (expansion factor, resolution, synapse classes, antibody labelling);
-  "Open in Neuroglancer"; clicking a synapse to open it in Neuroglancer.<br>
-  <b>Not here:</b> full-size images (these are reduced copies: ordinary images 300 pixels, contact sheets and figures 1000, single synapses 360);
-  the "Open folder" and "Synapse images" buttons; the turning 3D nucleus GIFs; the Synapse Log workbook, the per-sample CSV files and the reports.<br>
-  <b>Full version:</b> __FULL__ on the PC it was built on. This copy is rebuilt by Make_Gallery.bat and can be behind it; the build time is in the top bar.
+  The pictures inside this page are reduced; click any of them for the full-size file on the server. Click here for details.</summary>
+  <b>Inside this page:</b> reduced copies of every picture (ordinary images 300 pixels, contact sheets and figures 1000, single synapses 360),
+  so it opens quickly from anywhere; search, filters, sorting and every sample's details work without anything else.<br>
+  <b>On the server, one click away:</b> the full-size pictures (click a picture, or "image" under a synapse); "Open folder" and "Synapse images"
+  open the sample's folders there, with the turning 3D nucleus GIFs, the Synapse Log workbook, the per-sample CSV files and the reports;
+  "Open in Neuroglancer" and clicking a synapse open the image data. <a href="__MIRROR__" target="_blank" rel="noopener">The folders</a> are public; only this page needs the password.<br>
+  <b>Kept up to date by:</b> Make_Gallery_Protected.bat for this page, Make_Gallery.bat with --mirror for the folders; the build time is in the top bar.
 </details>`);
 </script>
 </body>"""
 
 
-def server_copy(base, samples, password=None):
+def server_copy(base, samples, password=None, out=None):
     """The gallery as ONE file in the zarr folder on the lab server, so that anyone who can reach
     the server can open it, from the drive or from its web address, with nothing else installed.
 
-    Every picture is carried inside the page as a small JPEG; the full-size pictures stay on
-    this PC and are not linked. The Neuroglancer links work as usual, since they already
-    point at the server. With a password the file holds only the encrypted page (see lock).
-    Returns (path, address to share).
+    Every picture is carried inside the page as a small JPEG, and links to its full-size file in
+    the mirror (see mirror()) at the server's web address, as do the "Open folder" and "Synapse
+    images" buttons; a sample of another year already links to its own server folder. The
+    Neuroglancer links work as usual, since they already point at the server. With a password
+    the file holds only the encrypted page (see lock). Returns (path, address to share).
     """
     import base64
     import io
@@ -595,16 +597,20 @@ def server_copy(base, samples, password=None):
         img.save(buffer, "JPEG", quality=quality, optimize=True)
         return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
+    # this year's folders as mirrored on the server; relative addresses in the page resolve against it
+    mirror_root = core.share_url_for(Path(core.DEFAULT_OUT).parent / MIRROR_FOLDER / base.name).rstrip("/") + "/"
     carried = []
     for n, sample in enumerate(samples, start=1):
-        sample = dict(sample, folder="", synapse_folder="",
+        at = sample.get("root") or mirror_root
+        absolute = lambda rel: rel if not rel or rel.startswith(("http://", "https://")) else at + rel
+        sample = dict(sample, folder=absolute(sample["folder"]), synapse_folder=absolute(sample["synapse_folder"]),
                       review=f"synapse_review.html?sample={urllib.parse.quote(sample['name'])}"
                       if sample.get("synapses") and not sample.get("root") else "")
         pictures = []
         for picture in sample["pictures"]:
             synapse = picture.get("group") == "synapse"
             px, quality = ((SERVER_SYNAPSE_PX, 55) if picture.get("number") else (SERVER_SHEET_PX, 65)) if synapse else (SERVER_THUMB_PX, 70)
-            pictures.append(dict(picture, thumb=packed(picture["thumb"], px, quality, sample), file=""))
+            pictures.append(dict(picture, thumb=packed(picture["thumb"], px, quality, sample), file=absolute(picture["file"])))
         sample["pictures"] = pictures
         sample["card"] = packed(sample["card"], SERVER_THUMB_PX, 70, sample)
         carried.append(sample)
@@ -613,11 +619,10 @@ def server_copy(base, samples, password=None):
     data = public_json(carried)
     title = GALLERY_TITLE + " (server copy)"
     page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
-    page = page.replace("__TITLE__", html.escape(title)).replace(
-        "</body>", SERVER_EXTRA.replace("__FULL__", html.escape(str(base / GALLERY_NAME)).replace("\\", "\\\\")))
-    out = Path(core.DEFAULT_OUT) / GALLERY_NAME
+    page = page.replace("__TITLE__", html.escape(title)).replace("</body>", SERVER_EXTRA.replace("__MIRROR__", html.escape(mirror_root)))
+    out = out or Path(core.DEFAULT_OUT) / GALLERY_NAME
     out.write_text(lock(page, password, GALLERY_TITLE) if password else page, encoding="utf-8")
-    return out, core.share_url_for(out)
+    return out, core.share_url_for(out) or ""      # no address when written somewhere the server does not publish (a test)
 
 
 MIRROR_FOLDER = "gallery"   # beside the zarr folder on the server: the full copy of the gallery's folders
@@ -687,6 +692,8 @@ async function unlock(password, typed) {
   } catch (err) { m.textContent = typed ? "Wrong password." : ""; return false; }
 }
 document.getElementById("f").addEventListener("submit", e => { e.preventDefault(); unlock(document.getElementById("p").value, true); });
+// the Back button can bring this page back from the browser's cache with the script half run and the form dead: start afresh
+window.addEventListener("pageshow", e => { if (e.persisted) location.reload(); });
 try {   // a password remembered by the gallery or the review page within the last HOURS opens this page too
   const r = JSON.parse(localStorage.getItem(REMEMBER) || "null");
   if (r && r.until > Date.now()) unlock(r.p, false); else localStorage.removeItem(REMEMBER);
