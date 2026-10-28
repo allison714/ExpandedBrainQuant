@@ -9,6 +9,7 @@ First tagged release. Repository to be renamed pan-ExM Gallery (was ExpandedBrai
 - Provenance: every Synapse Log carries a "Produced by" line in its Method sheet (tool, version, code hash, run time, host) and the gallery footer carries the same stamp (`provenance.py`).
 - Golden regression: two per-sample CSVs and the full log of 2026-10-28 frozen in `tests/golden/`; `scripts/golden_check.py` re-runs the detector and compares.
 - 2D synapse detector logs 150 synapses per sample (was 60); `--top` option.
+- Synapse cards: the measured lane (2 px thick, DP top to PSD top) is drawn on the overlay in red and to scale, with the two tops ticked and labelled; the profile plot's measured curve is the same red (was a thin dotted orange axis). Numbers unchanged (golden check passed).
 - Synapse Review page: phone-friendly accept/reject of every logged synapse, hosted beside the gallery, locked with the gallery password, decisions exported as CSV and imported with `review_import.py`; the gallery links to it per sample and remembers the password on the device.
 - Power estimate from between-animal variance (`scripts/power_estimate.py`).
 - Pinned `requirements.txt`; `CITATION.cff`; `.gitattributes` for line endings.

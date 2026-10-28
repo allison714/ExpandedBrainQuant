@@ -647,6 +647,44 @@ def bar_words(length, exf):
 
 FIGURE_DPI = 300       # the synapse pictures are saved at print resolution
 FIT_BLUE = "#4DA3FF"   # the fitted curve: a blue light enough to read on the dark background
+MEASURED_RED = "#FF2A2A"   # the line the distance was read from, on the overlay and in the profile plot
+PSD_PINK, DP_LIME = "#FA8072", "#BFFF00"   # the two tops, on the overlay and in the profile plot
+
+
+def measured_line(ax, h, half, side_in):
+    """The measurement, drawn on the overlay only so the other panels stay clean: the lane LINE_PX
+    pixels thick that the profile was read from, in red and to scale, from the DP top to the PSD
+    top; dotted beyond them over the rest of the profile; a tick and a label at each top in the
+    colours of the profile plot. Profile positions t are measured from the point the synapse was
+    found at; the tile is centred on the midpoint of the two fitted peaks, rounded to a pixel."""
+    from matplotlib import patheffects
+
+    across = np.array([-math.sin(h["theta"]), math.cos(h["theta"])])      # (row, col) steps along the profile
+    mid = (h["fit"][2] + h["fit"][5]) / 2
+    cy, cx = half + h["row"] - round(h["row"]), half + h["col"] - round(h["col"])
+
+    def xy(t):
+        return cx + (t - mid) * across[1], cy + (t - mid) * across[0]
+
+    halo = [patheffects.withStroke(linewidth=1.2, foreground="black")]
+    pts_per_px = side_in * 72 / (2 * half + 1)
+    ends = sorted(h["summits"])
+    for a, b in ((h["t"][0], ends[0]), (ends[1], h["t"][-1])):           # the rest of the profile, dotted
+        (x0, y0), (x1, y1) = xy(a), xy(b)
+        ax.plot([x0, x1], [y0, y1], color=MEASURED_RED, lw=1.1, ls=":", zorder=3, path_effects=halo)
+    (x0, y0), (x1, y1) = xy(ends[0]), xy(ends[1])                          # the lane, DP top to PSD top
+    ax.plot([x0, x1], [y0, y1], color=MEASURED_RED, lw=max(2.4, LINE_PX * pts_per_px), alpha=0.6,
+            solid_capstyle="butt", zorder=3)
+    tick = 0.045 * (2 * half + 1)
+    perp = np.array([across[1], -across[0]])                               # (row, col) steps along the densities
+    for k, s in enumerate(h["summits"]):
+        x, y = xy(s)
+        colour = PSD_PINK if k == h["psd"] else DP_LIME
+        ax.plot([x - tick * perp[1], x + tick * perp[1]], [y - tick * perp[0], y + tick * perp[0]],
+                color=colour, lw=1.8, zorder=4, path_effects=halo)
+        ax.text(x + 1.6 * tick * perp[1], y + 1.6 * tick * perp[0], "PSD" if k == h["psd"] else "DP",
+                color=colour, fontsize=7, fontweight="bold", ha="center", va="center", zorder=6,
+                path_effects=[patheffects.withStroke(linewidth=2, foreground="black")])
 
 
 def card(png, number, name, h, tile, um, pan_ch, ab_ch, exf=None):
@@ -678,21 +716,17 @@ def card(png, number, name, h, tile, um, pan_ch, ab_ch, exf=None):
         ax.set_title(title, color=colour, fontsize=9)
         length = scale_bar(ax, um, img.shape[1])
     axes[-1].set_position([(edge + n * side + gap) / width, below / height, plot_w / width, side / height])
-    # the measured axis, drawn on the overlay only so the other panels stay clean
-    across = np.array([-math.sin(h["theta"]), math.cos(h["theta"])])
-    reach = h["distance_um"] / um
-    axes[n - 1].plot([half - reach * across[1], half + reach * across[1]],
-                     [half - reach * across[0], half + reach * across[0]], color="#FF9900", lw=1, ls=":")
+    measured_line(axes[n - 1], h, half, side)
     ax = axes[-1]
     t_um = h["t"] * um
     ax.plot(t_um, h["profile"], color=eff.MUTED, lw=1.2, label="Pan, averaged along the bar (fitted)")
-    ax.plot(t_um, h["thin"], color="white", lw=2, label=f"Pan, {LINE_PX}-pixel line (measured)")
+    ax.plot(t_um, h["thin"], color=MEASURED_RED, lw=2, label=f"Pan, {LINE_PX}-pixel line (measured)")
     inside = (h["t"] >= h["win"][0]) & (h["t"] <= h["win"][1])
     ax.plot(t_um[inside], two_peaks(h["t"][inside], *h["fit"]), color=FIT_BLUE, lw=1.8, label="Two-Gaussian fit")
     for k, m in enumerate(h["summits"]):
         ax.axvline(m * um, color="white", lw=1, ls=":")
         ax.annotate("PSD" if k == h["psd"] else "DP", (m * um, h["tops"][k]), xytext=(0, 6), textcoords="offset points",
-                    ha="center", color="#FA8072" if k == h["psd"] else "#BFFF00", fontsize=9, fontweight="bold")
+                    ha="center", color=PSD_PINK if k == h["psd"] else DP_LIME, fontsize=9, fontweight="bold")
     if h["ab_profile"] is not None:
         # the antibody along the same line, dashed, rescaled to the pan curve's height so its
         # position can be compared with the two pan peaks (its own counts are not on this axis)
