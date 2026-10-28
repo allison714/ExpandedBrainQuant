@@ -32,6 +32,7 @@ All of these live in `ZarrBatchConverter/`. Double-click the `.bat`; the `.py` b
 | 5 | `Measure_AB_Efficiency.bat` | Antibody labelling against the pan stain: PCC, Manders, coverage, SBR, penetration with depth. |
 | 6 | `Compare_AB.bat` / `Double_Label.bat` | Compare two sample sets antibody by antibody; test double-labelled samples for bleed-through and labelling efficiency. |
 | 7 | `Make_Gallery.bat` | Builds the one-page HTML gallery of every sample (with ExF, resolution and labelling numbers) and can mirror it to the server. |
+| 7c | `Build_Synapse_Review.bat` | Builds the Synapse Review page (one card per logged synapse, swipe or key Y/N, phone friendly) and a password-locked copy on the server beside the gallery; decisions are exported as CSV and imported with `review_import.py`. `review_thumbs.py` makes the card JPEGs. |
 | 7b | `Make_Gallery_Protected.bat` | The same gallery as one password-protected file (AES-256-GCM, unlocked in the browser) for sharing outside the lab; skips the open server mirror. |
 
 ### Analysis modules without a `.bat`

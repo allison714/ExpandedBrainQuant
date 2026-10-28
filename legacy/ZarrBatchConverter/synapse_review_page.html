@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow"><title>__TITLE__</title>
+<style>
+:root { color-scheme: dark;
+  --bg:#121417; --panel:#1b1f24; --panel2:#23282f; --fg:#e8e6e1; --dim:#9aa0a8; --line:#2f353d;
+  --accent:#e0b24c; --yes:#4fb28a; --no:#d9636a; --unsure:#8a93a6; }
+@media (prefers-color-scheme: light) { :root { color-scheme: light;
+  --bg:#f4f2ed; --panel:#ffffff; --panel2:#ebe8e1; --fg:#1d1f22; --dim:#5d636b; --line:#d7d2c8;
+  --accent:#a67c0e; --yes:#1f8a5f; --no:#b8343c; --unsure:#5f6778; } }
+html, body { height:100%; margin:0; }
+body { background:var(--bg); color:var(--fg); font:15px/1.35 Arial, Helvetica, sans-serif; display:flex; flex-direction:column; min-height:100%; }
+button, select, input { font:inherit; color:inherit; }
+button { cursor:pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.num { font-family: Consolas, "Courier New", monospace; font-variant-numeric: tabular-nums; }
+header { position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--panel); border-bottom:1px solid var(--line);
+  padding:8px 16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+header h1 { font-size:16px; margin:0; flex:1 1 auto; }
+header .progress { font-size:13px; color:var(--dim); }
+.controls { width:100%; display:flex; flex-wrap:wrap; gap:6px; }
+.controls select { flex:1 1 220px; min-width:0; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:7px 10px; }
+.toggle { background:var(--panel2); border:1px solid var(--line); border-radius:999px; padding:6px 11px; font-size:13px; color:var(--dim); }
+.toggle[aria-pressed="true"] { color:var(--fg); border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+.bar { height:4px; background:var(--panel2); border-radius:2px; width:100%; overflow:hidden; }
+.bar i { display:block; height:100%; background:var(--accent); width:0; transition:width .2s; }
+main { flex:1 1 auto; padding:12px 16px 130px; max-width:1100px; width:100%; margin:0 auto; box-sizing:border-box; }
+.stage { position:relative; background:#0b0d10; border:1px solid var(--line); border-radius:10px; overflow:auto; max-height:62vh;
+  touch-action: pan-x pan-y pinch-zoom; -webkit-overflow-scrolling: touch; }
+.stage img { display:block; width:100%; max-width:none; height:auto; }
+.stage.zoom img { width:220%; }
+.verdict { position:absolute; inset:0; display:grid; place-items:center; font-size:56px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .12s; }
+.verdict.show { opacity:.85; }
+.stamp { position:absolute; top:10px; left:10px; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:6px; background:var(--panel); border:1px solid var(--line); color:var(--dim); }
+.stamp[data-v="Y"] { color:var(--yes); border-color:var(--yes); } .stamp[data-v="N"] { color:var(--no); border-color:var(--no); } .stamp[data-v="?"] { color:var(--unsure); border-color:var(--unsure); }
+.title { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline; margin:10px 0 6px; }
+.title .name { font-weight:700; word-break:break-all; } .title .id { color:var(--dim); font-size:13px; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:5px 9px; font-size:13px; display:inline-flex; gap:6px; align-items:baseline; }
+.chip b { font-weight:400; color:var(--dim); font-size:12px; letter-spacing:.03em; text-transform:uppercase; }
+.chip.good { border-color:var(--yes); } .chip.warn { border-color:var(--accent); }
+.links { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px; font-size:13px; } .links a { color:var(--accent); }
+.note { margin-top:10px; display:flex; gap:6px; }
+.note input { flex:1 1 auto; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+.note button, .io button, .io label { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px; cursor:pointer; }
+.io { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px; font-size:13px; color:var(--dim); }
+.io input[type=file] { display:none; }
+.hint { color:var(--dim); font-size:13px; margin-top:10px; }
+.empty { text-align:center; color:var(--dim); padding:40px 0; } .empty h2 { color:var(--fg); font-size:18px; margin:0 0 8px; }
+footer { position:fixed; left:0; right:0; bottom:0; z-index:5; background:var(--panel); border-top:1px solid var(--line);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); display:grid; grid-template-columns:1fr 1.6fr 1fr 1.6fr; gap:8px; max-width:1100px; margin:0 auto; box-sizing:border-box; }
+footer button { border:1px solid var(--line); border-radius:12px; padding:14px 6px; font-size:16px; font-weight:700; background:var(--panel2); min-height:54px; }
+footer button small { display:block; font-weight:400; font-size:11px; color:var(--dim); margin-top:2px; }
+footer .yes { background:var(--yes); color:#0b0d10; border-color:var(--yes); } footer .no { background:var(--no); color:#0b0d10; border-color:var(--no); }
+footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button:disabled { opacity:.4; cursor:default; }
+.status { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom, 0px)); background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:6px 14px; font-size:13px; color:var(--dim); opacity:0; transition:opacity .2s; pointer-events:none; }
+.status.show { opacity:1; }
+@media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
+@media (min-width: 760px) { .stage { max-height:70vh; } }
+</style></head><body>
+<header>
+  <h1>__TITLE__</h1>
+  <span class="progress num" id="progress"></span>
+  <div class="controls">
+    <select id="sample" aria-label="Sample"><option>All samples</option></select>
+    <button class="toggle" id="fUnrev" aria-pressed="true">Unreviewed only</button>
+    <button class="toggle" id="fAb" aria-pressed="false">Antibody-positive</button>
+    <button class="toggle" id="fIn" aria-pressed="false">ExF 16 to 24</button>
+    <select id="order" aria-label="Order">
+      <option value="n">In log order</option><option value="score">Best examples first</option>
+      <option value="exf">Lowest ExF first</option><option value="exfd">Highest ExF first</option>
+    </select>
+  </div>
+  <div class="bar"><i id="barfill"></i></div>
+</header>
+<main>
+  <div id="empty" class="empty"></div>
+  <div id="card" hidden>
+    <div class="stage" id="stage"><img id="img" alt="Synapse card: pan tile, antibody tile, overlay and profile"><span class="stamp" id="stamp" hidden></span><div class="verdict" id="verdict"></div></div>
+    <div class="title"><span class="name" id="name"></span><span class="id num" id="sid"></span></div>
+    <div class="chips" id="chips"></div>
+    <div class="links">
+      <a id="pngLink" target="_blank" rel="noopener">Full-size card</a>
+      <a id="ngLink" target="_blank" rel="noopener">Open in Neuroglancer</a>
+      <a href="#" id="zoomLink">Zoom 2x</a>
+    </div>
+    <div class="note"><input id="note" placeholder="Note (optional): tilted, membrane pair, vessel..." maxlength="200"><button id="saveNote">Save note</button></div>
+    <p class="hint">Swipe right or press Y to accept, swipe left or N to reject, U for unsure, Backspace to go back, right arrow to skip. Double-tap the card to zoom.</p>
+  </div>
+  <div class="io">
+    <span id="ioText"></span>
+    <button id="export">Export CSV</button>
+    <button id="copy">Copy CSV</button>
+    <label for="importFile">Import CSV</label><input type="file" id="importFile" accept=".csv,text/csv">
+  </div>
+  <p class="hint">Decisions are kept in this browser only. Export the CSV when you stop, and import it on the PC with <span class="num">review_import.py</span>; rebuilding this page then carries the decisions into it for every device. Built __BUILT__.</p>
+</main>
+<footer>
+  <button id="back" disabled>Back<small>previous</small></button>
+  <button id="no" class="no">Reject<small>N</small></button>
+  <button id="unsure">Unsure<small>?</small></button>
+  <button id="yes" class="yes">Accept<small>Y</small></button>
+</footer>
+<div class="status" id="status"></div>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const DATA = JSON.parse($("data").textContent);
+  const META = DATA.meta, ROWS = DATA.rows;
+  const STORE = "synapse-review-decisions", PREFS = "synapse-review-prefs";
+  const state = { local: {}, filtered: [], i: 0, history: [], exportedAt: null };
+
+  const load = () => { try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); state.local = o.d || {}; state.exportedAt = o.exportedAt || null; } catch (e) { state.local = {}; } };
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ d: state.local, exportedAt: state.exportedAt })); } catch (e) { toast("Could not save in this browser"); } };
+  const remember = () => { try { localStorage.setItem(PREFS, JSON.stringify({ sample: $("sample").value, order: $("order").value,
+    unrev: $("fUnrev").getAttribute("aria-pressed"), ab: $("fAb").getAttribute("aria-pressed"), inr: $("fIn").getAttribute("aria-pressed") })); } catch (e) {} };
+  const recall = () => { try { return JSON.parse(localStorage.getItem(PREFS) || "{}"); } catch (e) { return {}; } };
+  const toast = t => { const s = $("status"); s.textContent = t; s.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => s.classList.remove("show"), 1600); };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const fmt = (v, d) => (v === undefined || v === null) ? "" : Number(v).toFixed(d);
+  // a decision: what this browser recorded, else what the log had when the page was built
+  const decisionOf = r => state.local[r.k] || (r.acc || r.notes ? { accept: r.acc || null, notes: r.notes || "", baked: true } : null);
+
+  function applyFilter(keepIndex) {
+    const sample = $("sample").value, unrev = $("fUnrev").getAttribute("aria-pressed") === "true";
+    const ab = $("fAb").getAttribute("aria-pressed") === "true", inr = $("fIn").getAttribute("aria-pressed") === "true";
+    const cur = state.filtered[state.i];
+    const rows = ROWS.filter(r => (sample === "All samples" || r.s === sample) && (!ab || r.abp) && (!inr || r.in) && (!unrev || !(decisionOf(r) && decisionOf(r).accept)));
+    const order = $("order").value;
+    if (order === "score") rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+    else if (order === "exf") rows.sort((a, b) => (a.exf || 99) - (b.exf || 99));
+    else if (order === "exfd") rows.sort((a, b) => (b.exf || 0) - (a.exf || 0));
+    else rows.sort((a, b) => a.s.localeCompare(b.s) || a.n - b.n);
+    state.filtered = rows; state.i = 0;
+    if (keepIndex && cur) { const j = rows.findIndex(r => r.k === cur.k); if (j >= 0) state.i = j; }
+    remember(); render();
+  }
+  const counts = sample => { const rows = sample ? ROWS.filter(r => r.s === sample) : ROWS; let done = 0; for (const r of rows) { const d = decisionOf(r); if (d && d.accept) done++; } return { done, total: rows.length }; };
+  function fillSamples() {
+    const sel = $("sample"), prev = sel.value; sel.innerHTML = "";
+    const all = counts(); sel.add(new Option(`All samples (${all.done}/${all.total})`, "All samples"));
+    for (const s of META.samples) { const c = counts(s); sel.add(new Option(`${s} (${c.done}/${c.total})`, s)); }
+    sel.value = prev && [...sel.options].some(o => o.value === prev) ? prev : "All samples";
+  }
+  function ioText() {
+    const n = Object.keys(state.local).length;
+    const fresh = Object.values(state.local).filter(d => !state.exportedAt || d.at > state.exportedAt).length;
+    $("ioText").textContent = n ? `${n} decisions on this device, ${fresh} not yet exported.` : "No decisions on this device yet.";
+  }
+  function render() {
+    const r = state.filtered[state.i]; const all = counts();
+    $("progress").textContent = `${all.done} / ${all.total} reviewed`;
+    $("barfill").style.width = all.total ? (100 * all.done / all.total) + "%" : "0";
+    $("back").disabled = state.history.length === 0; ioText();
+    if (!r) { $("card").hidden = true; $("empty").hidden = false;
+      $("empty").innerHTML = all.done === all.total && all.total ? "<h2>Every synapse in this view is reviewed</h2><p>Switch off Unreviewed only to revisit decisions, pick another sample, or export the CSV.</p>"
+        : "<h2>Nothing matches these filters</h2><p>Loosen a filter or choose another sample.</p>"; return; }
+    $("empty").hidden = true; $("card").hidden = false;
+    const jpg = META.img_base + encodeURIComponent(r.s) + "/" + encodeURIComponent(r.img) + ".jpg";
+    $("img").src = jpg;
+    $("pngLink").href = META.png_base + encodeURIComponent(r.s) + "/" + encodeURIComponent(r.img) + ".png";
+    $("ngLink").href = META.ng_prefix + r.ng; $("ngLink").hidden = !r.ng;
+    $("name").textContent = `${r.s}  #${r.n}`; $("sid").textContent = r.id + (r.z !== undefined ? `  z${r.z}` : "");
+    const d = decisionOf(r); const st = $("stamp"); st.hidden = !(d && d.accept);
+    if (d && d.accept) { st.dataset.v = d.accept; st.textContent = (d.accept === "Y" ? "accepted" : d.accept === "N" ? "rejected" : "unsure") + (d.baked ? " (in log)" : ""); }
+    $("note").value = (d && d.notes) || "";
+    const chips = []; const chip = (l, v, c) => chips.push(`<span class="chip ${c || ""}"><b>${l}</b><span class="num">${esc(v)}</span></span>`);
+    if (r.exf !== undefined) chip("ExF p2p", fmt(r.exf, 1), r.in ? "good" : "warn");
+    if (r.exfg !== undefined) chip("ExF fit", fmt(r.exfg, 1));
+    if (r.cls) chip("class", r.cls);
+    if (r.ab) chip(r.ab.split(",")[0].trim(), (r.abs !== undefined ? fmt(r.abs, 1) + " sigma" : "") + (r.abp ? " +" : ""), r.abp ? "good" : "");
+    if (r.ab && r.ab.includes(",")) chip(r.ab.split(",")[1].trim(), (r.ab2s !== undefined ? fmt(r.ab2s, 1) + " sigma" : "") + (r.ab2p ? " +" : ""), r.ab2p ? "good" : "");
+    if (r.score !== undefined) chip("example score", fmt(r.score, 2));
+    if (r.r2 !== undefined) chip("fit R2", fmt(r.r2, 3)); if (r.dip !== undefined) chip("dip", fmt(r.dip, 2)); if (r.pr !== undefined) chip("peak ratio", fmt(r.pr, 2));
+    if (r.by) chip("PSD named by", r.by);
+    $("chips").innerHTML = chips.join(""); $("stage").classList.remove("zoom"); $("stage").scrollTo(0, 0);
+    const nx = state.filtered[state.i + 1]; if (nx) { const p = new Image(); p.src = META.img_base + encodeURIComponent(nx.s) + "/" + encodeURIComponent(nx.img) + ".jpg"; }
+  }
+  const flash = v => { const e = $("verdict"); e.textContent = v === "Y" ? "accepted" : v === "N" ? "rejected" : "unsure"; e.style.color = v === "Y" ? "var(--yes)" : v === "N" ? "var(--no)" : "var(--unsure)"; e.classList.add("show"); setTimeout(() => e.classList.remove("show"), 350); };
+  function decide(v) {
+    const r = state.filtered[state.i]; if (!r) return;
+    state.local[r.k] = { accept: v, notes: $("note").value.trim(), at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
+    save(); flash(v); state.history.push(r.k);
+    if ($("fUnrev").getAttribute("aria-pressed") === "true") applyFilter(false); else { state.i = Math.min(state.i + 1, state.filtered.length); render(); }
+    fillSamples();
+  }
+  function back() {
+    const k = state.history.pop(); if (!k) return;
+    if ($("fUnrev").getAttribute("aria-pressed") === "true") { $("fUnrev").setAttribute("aria-pressed", "false"); applyFilter(false); }
+    const j = state.filtered.findIndex(r => r.k === k); if (j >= 0) { state.i = j; render(); }
+  }
+  function saveNote() {
+    const r = state.filtered[state.i]; if (!r) return; const d = decisionOf(r) || {};
+    state.local[r.k] = { accept: d.accept || null, notes: $("note").value.trim(), at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
+    save(); toast("Note saved"); render();
+  }
+  function csv() {
+    const rows = [["key", "sample", "synapse_id", "n", "accept", "notes", "at"]];
+    for (const [k, d] of Object.entries(state.local)) rows.push([k, d.sample, d.id, d.n, d.accept || "?", d.notes || "", d.at || ""]);
+    return rows.map(x => x.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\r\n") + "\r\n";
+  }
+  function exportCsv() {
+    const n = Object.keys(state.local).length; if (!n) { toast("Nothing to export yet"); return; }
+    const blob = new Blob([csv()], { type: "text/csv" }); const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = `synapse_decisions_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    state.exportedAt = new Date().toISOString(); save(); ioText(); toast(`Exported ${n} decisions`);
+  }
+  async function copyCsv() {
+    try { await navigator.clipboard.writeText(csv()); toast("CSV copied"); } catch (e) { toast("Copy not allowed here; use Export"); }
+  }
+  function importCsv(file) {
+    const rd = new FileReader(); rd.onload = () => {
+      const lines = rd.result.split(/\r?\n/).filter(Boolean); const hdr = parse(lines[0]); const ix = n => hdr.indexOf(n);
+      if (ix("key") < 0 || ix("accept") < 0) { toast("Not a decisions CSV"); return; }
+      let added = 0;
+      for (const line of lines.slice(1)) { const c = parse(line); const k = c[ix("key")]; if (!k) continue;
+        const at = ix("at") >= 0 ? c[ix("at")] : ""; const have = state.local[k];
+        if (have && have.at && at && have.at >= at) continue;
+        const acc = (c[ix("accept")] || "").toUpperCase(); const [s, id] = k.split("__");
+        state.local[k] = { accept: ["Y", "N", "?"].includes(acc) ? acc : null, notes: ix("notes") >= 0 ? c[ix("notes")] : "", at: at || new Date().toISOString(), sample: s, id, n: ix("n") >= 0 ? +c[ix("n")] : undefined }; added++; }
+      save(); fillSamples(); applyFilter(true); toast(`Imported ${added} decisions`);
+    }; rd.readAsText(file);
+  }
+  function parse(line) { const out = []; let cur = "", q = false; for (let i = 0; i < line.length; i++) { const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true; else if (ch === ",") { out.push(cur); cur = ""; } else cur += ch; } out.push(cur); return out; }
+
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") { if (e.key === "Enter" && e.target.id === "note") saveNote(); return; }
+    const k = e.key.toLowerCase();
+    if (k === "y") decide("Y"); else if (k === "n") decide("N"); else if (k === "u" || k === "?") decide("?");
+    else if (k === "backspace" || k === "arrowleft") { e.preventDefault(); back(); }
+    else if (k === "arrowright" || k === " ") { e.preventDefault(); state.i = Math.min(state.i + 1, state.filtered.length - 1); render(); }
+    else if (k === "z") $("stage").classList.toggle("zoom");
+  });
+  $("yes").onclick = () => decide("Y"); $("no").onclick = () => decide("N"); $("unsure").onclick = () => decide("?"); $("back").onclick = back;
+  $("saveNote").onclick = saveNote; $("export").onclick = exportCsv; $("copy").onclick = copyCsv;
+  $("importFile").onchange = e => { if (e.target.files[0]) importCsv(e.target.files[0]); e.target.value = ""; };
+  $("zoomLink").onclick = e => { e.preventDefault(); $("stage").classList.toggle("zoom"); };
+  for (const id of ["fUnrev", "fAb", "fIn"]) $(id).onclick = () => { const b = $(id); b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); applyFilter(false); };
+  $("sample").onchange = () => applyFilter(false); $("order").onchange = () => applyFilter(true);
+  const stage = $("stage"); let sx = null, sy = null, lastTap = 0;
+  stage.addEventListener("pointerdown", e => { sx = e.clientX; sy = e.clientY; });
+  stage.addEventListener("pointerup", e => { if (sx === null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 90 && Math.abs(dy) < 60 && !stage.classList.contains("zoom")) { decide(dx > 0 ? "Y" : "N"); return; }
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) { const now = Date.now(); if (now - lastTap < 320) { stage.classList.toggle("zoom"); lastTap = 0; } else lastTap = now; } });
+
+  load(); fillSamples();
+  const saved = recall(); const q = new URLSearchParams(location.search).get("sample") || decodeURIComponent(location.hash.slice(1));
+  const want = q && META.samples.includes(q) ? q : saved.sample;
+  if (want && [...$("sample").options].some(o => o.value === want)) $("sample").value = want;
+  if (saved.order) $("order").value = saved.order;
+  if (saved.unrev) $("fUnrev").setAttribute("aria-pressed", saved.unrev);
+  if (saved.ab) $("fAb").setAttribute("aria-pressed", saved.ab); if (saved.inr) $("fIn").setAttribute("aria-pressed", saved.inr);
+  applyFilter(false);
+})();
+</script></body></html>
