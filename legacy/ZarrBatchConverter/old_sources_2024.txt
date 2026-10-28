@@ -1,0 +1,40 @@
+Y:\2024\ims\20x-overviewtest01_1_FusionStitcher.ims
+Y:\2024\Nikon AXR + Ji Microscope Demo\60X Oil Z-Stack NSPARC.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\60X Nyquist Z-Stack - Denoised.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\60X Oil Z-Stack.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Z-Stack - Denoised.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Z-stack.nd2
+Y:\2024\ims\GFP-PAN-Soma-20X_2024-07-10_16.04.57.ims
+Y:\2024\Nikon AXR + Ji Microscope Demo\40X WI Z-Stack NSPARC.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Nyquist Sampled Z-Stack - Denoised.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Z-stack Nyquist 2.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\40X WI Z-Stack - Denoised.nd2
+Y:\2024\Nikon AXR + Ji Microscope Demo\40X WI Z-Stack Nyquist.nd2
+Y:\2024\ims\ms7b_top_3_1_FusionStitcher.ims
+Y:\2024\ims\20241215_8B_tip_CA3_ii_60x_FusionStitcher.ims
+Y:\2024\ims\ms7b_top_2_1_FusionStitcher.ims
+Y:\2024\ims\20241215_8B_tip_CA3_ii_2x2_FusionStitcher.ims
+Y:\2024\ims\20241215_8B_tip_CA3_iii_60x_FusionStitcher.ims
+Y:\2024\ims\20241215_8B_tip_CA3_iv_60x_FusionStitcher.ims
+Y:\2024\ims\20241215_8B_tip_CA3_iii_2x2_1_FusionStitcher.ims
+Y:\2024\ims\8B_CA3_ii_FusionStitcher.ims
+Y:\2024\ims\60x_11_FusionStitcher.ims
+Y:\2024\ims\ms8ai_12_FusionStitcher.ims
+Y:\2024\ims\20241215_8B_tip_CA3_iv_2x2_FusionStitcher.ims
+Y:\2024\ims\8B_CA3_iv_FusionStitcher.ims
+Y:\2024\ims\ms7e_iii_20x_2_FusionStitcher.ims
+Y:\2024\ims\8B_CA3_iii_FusionStitcher.ims
+Y:\2024\ims\240629_ms8_b_4_FusionStitcher.ims
+Y:\2024\ims\ms5_top_a_i_FusionStitcher.ims
+Y:\2024\ims\240628_ms8_b_1_FusionStitcher.ims
+Y:\2024\ims\ms5_btm_d_1_FusionStitcher.ims
+Y:\2024\ims\60x_14_FusionStitcher.ims
+Y:\2024\ims\ms8ai_17_FusionStitcher.ims
+Y:\2024\ims\ms8aii_3_FusionStitcher.ims
+Y:\2024\ims\ms8ai_20_FusionStitcher.ims
+Y:\2024\ims\ms7e_iv_20x_FusionStitcher.ims
+Y:\2024\ims\ms5_btm_d_FusionStitcher.ims
+Y:\2024\ims\240629_ms8_b_FusionStitcher.ims
+Y:\2024\ims\20241006_image_FusionStitcher.ims
+Y:\2024\ims\ms8B_LO_iii_2_FusionStitcher3rdattempt.ims
+Y:\2024\ims\ms8B_LO2_ii_FusionStitcher.ims

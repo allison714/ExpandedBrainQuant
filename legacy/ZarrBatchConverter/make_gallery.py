@@ -28,6 +28,7 @@ import convert_to_zarr as core
 import roi_log
 
 GALLERY_TITLE = "2026 AC Gallery"   # shown at the top of the page; also the file name
+CURRENT_YEAR = "2026"                # the year the page opens on; older years come from settings_<year>.ini
 GALLERY_NAME = GALLERY_TITLE + ".html"
 OLD_NAMES = ["Zarr Gallery.html"]    # earlier names of the page, removed when it is rebuilt
 THUMB_DIR = "_gallery_thumbs"
@@ -58,6 +59,12 @@ def nice_view(tag):
             "Full-image": "Full image"}.get(tag, tag.replace("-", " "))
 
 
+def public_json(samples):
+    """The samples as the page's data, without the local folder each was read from."""
+    clean = [{k: v for k, v in s.items() if not k.startswith("_")} for s in samples]
+    return json.dumps(clean, ensure_ascii=False, default=str).replace("</", "<\\/")
+
+
 def thumbnail(png, dest, size=THUMB_PX):
     """Make (or reuse) the small JPEG copy of a picture. Returns False if it cannot be read."""
     from PIL import Image
@@ -74,11 +81,12 @@ def thumbnail(png, dest, size=THUMB_PX):
         return False   # still being written, or not a picture
 
 
-def read_metadata():
-    """{image name: metadata} from the image list, and {name: [log rows]} from the screenshot log."""
+def read_metadata(image_list=None, shots=None):
+    """{image name: metadata} from the image list, and {name: [log rows]} from the screenshot log
+    (the current year's unless another year's list and screenshot folder are given)."""
     meta = {}
     try:
-        ws = load_workbook(core.DEFAULT_LIST)["Images"]
+        ws = load_workbook(image_list or core.DEFAULT_LIST)["Images"]
         header_row = next(r for r in range(1, 12) if "Image Name" in [c.value for c in ws[r]])
         heads = [c.value for c in ws[header_row]]
         for r in range(header_row + 1, ws.max_row + 1):
@@ -91,7 +99,7 @@ def read_metadata():
         print(f"(image list not read: {e})")
     logged = {}
     try:
-        for row in roi_log.read_log(Path(core.DEFAULT_SHOTS) / roi_log.LOG_NAME):
+        for row in roi_log.read_log(Path(shots or core.DEFAULT_SHOTS) / roi_log.LOG_NAME):
             logged.setdefault(row.get(roi_log.HEADERS[0]), []).append(row)
     except Exception as e:
         print(f"(screenshot log not read: {e})")
@@ -152,14 +160,16 @@ def synapse_pictures(base, name):
     return sorted(found, key=lambda p: p["number"])
 
 
-def read_synapse_summary(base):
+def read_synapse_summary(base, folder=None):
     """{sample: its row of the Synapse Log's Summary sheet} (synapse_exf.py), and the folder the
     synapse pictures are in. Empty when nothing has been measured yet."""
     import configparser
 
-    cfg = configparser.ConfigParser(interpolation=None)
-    cfg.read(core.SETTINGS_FILE, encoding="utf-8-sig")
-    folder = Path(cfg.get("paths", "synapse_folder", fallback="").strip() or base.parent / "Zarr Synapse ExF")
+    if folder is None:
+        cfg = configparser.ConfigParser(interpolation=None)
+        cfg.read(core.SETTINGS_FILE, encoding="utf-8-sig")
+        folder = cfg.get("paths", "synapse_folder", fallback="").strip()
+    folder = Path(folder or base.parent / "Zarr Synapse ExF")
     rows = {}
     try:
         ws = load_workbook(folder / "Synapse Log.xlsx", read_only=True)["Summary"]
@@ -213,10 +223,27 @@ def labelling(name, channels):
     return {"chips": chips, "label_kind": kind, "combo": " + ".join(sorted(shown, key=str.lower)), "genotype": genotype}
 
 
-def collect(base):
-    """One record per sample subfolder that holds at least one picture."""
-    meta, logged = read_metadata()
-    measured, synapse_folder = read_synapse_summary(base)
+def older_years():
+    """[(year, {paths})] for every settings_<year>.ini beside this script (made when the
+    pre-2026 stacks were converted), newest first. Each year keeps its own zarrs, image list,
+    screenshots and synapse log on the server."""
+    import configparser
+
+    years = []
+    for ini in sorted(Path(__file__).parent.glob("settings_[0-9][0-9][0-9][0-9].ini"), reverse=True):
+        cfg = configparser.ConfigParser(interpolation=None)
+        cfg.read(ini, encoding="utf-8-sig")
+        paths = {k: cfg.get("paths", k, fallback="").strip() for k in ("screenshot_folder", "image_list", "synapse_folder")}
+        if paths["screenshot_folder"] and Path(paths["screenshot_folder"]).is_dir():
+            years.append((ini.stem.split("_")[1], paths))
+    return years
+
+
+def collect(base, year=None, image_list=None, synapse_folder=None, root=""):
+    """One record per sample subfolder that holds at least one picture. For another year, root
+    is the web address of its screenshot folder: its pictures are not beside the page."""
+    meta, logged = read_metadata(image_list, base if image_list else None)
+    measured, synapse_folder = read_synapse_summary(base, synapse_folder)
     checked = read_channels(base)
     SYNAPSE_LINKS.update(read_synapse_links(synapse_folder))
     samples = []
@@ -253,8 +280,12 @@ def collect(base):
         m = meta.get(name, {})
         ratings = [p["rating"] for p in pictures if isinstance(p["rating"], (int, float))]
         date = m.get("Date Acquired")
+        if root:   # another year: every address made absolute, so the page can sit anywhere
+            pictures = [dict(p, file=root + p["file"], thumb=root + p["thumb"]) for p in pictures]
+            card = dict(card, thumb=root + card["thumb"])
         samples.append({
             **labelling(name, checked.get(name, [])),
+            "year": year or "", "root": root, "_base": str(base),
             "name": name, "card": card["thumb"], "pictures": pictures, "synapses": len([p for p in synapses if p["number"]]),
             "type": next((r.get("Type") for r in logged.get(name, []) if r.get("Type")), ""),
             "date": date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else (str(date) if date else ""),
@@ -264,7 +295,7 @@ def collect(base):
             "density_text": m.get("AB Density by Channel") or "", "link_status": m.get("Link Status") or "",
             "url": m.get("url"), "rating": max(ratings) if ratings else None,
             "notes": " | ".join(str(p["notes"]) for p in pictures if p["notes"]),
-            "folder": urllib.parse.quote(name) + "/",
+            "folder": root + urllib.parse.quote(name) + "/",
             # from the synapse log; absent until Measure_ExF.bat has been run on the sample
             "antibody": x.get("Antibody") or "", "exf": x.get("ExF"), "exf_sd": x.get("ExF s.d."),
             "exf_fields": x.get("ExF Fields"), "exf_n": x.get("ExF n"), "exf_basis": x.get("ExF Basis") or "",
@@ -276,7 +307,7 @@ def collect(base):
             "synapses_found": x.get("Synapses found"), "ab_pos": x.get("AB+"), "ab_labelled": x.get("AB Labelled Synapses (%)"),
             "ab_signal": x.get("AB Signal at Synapses (σ)"), "ab_puncta": x.get("AB Puncta"),
             "ab_on": x.get("AB Puncta on Synapses (%)"), "ab_enrich": x.get("AB Enrichment (× chance)"),
-            "synapse_folder": urllib.parse.quote(f"../{synapse_folder.name}/{name}") + "/" if x else "",
+            "synapse_folder": root + urllib.parse.quote(f"../{synapse_folder.name}/{name}") + "/" if x else "",
             "type1_macular": x.get("Type I Macular"), "type1_perforated": x.get("Type I Perforated"),
             "type2": x.get("Type II (putative)"), "classes_on": x.get("Classes Counted On") or "",
             # structure measured on the same synapses (synapse_structure.py)
@@ -328,6 +359,7 @@ a.pic { color:var(--accent); text-decoration:none; } a.pic:hover { text-decorati
 #tabs button { background:none; border:1px solid var(--line); color:var(--dim); border-radius:16px; padding:5px 13px; font:inherit; cursor:pointer; }
 #tabs button.on { background:var(--panel); color:var(--text); border-color:var(--accent); }
 #tabs button span { color:var(--dim); margin-left:5px; font-size:12px; }
+.group.yr { color:var(--text); font-size:14px; }
 .group { grid-column:1 / -1; margin:8px 0 -4px; font-size:13px; font-weight:600; color:var(--dim); border-bottom:1px solid var(--line); padding-bottom:5px; }
 #detail { position:fixed; inset:0; background:rgba(0,0,0,.82); display:none; z-index:10; overflow:auto; }
 #detail.on { display:block; }
@@ -348,6 +380,7 @@ h3 { margin:26px 0 10px; font-size:14px; font-weight:600; color:var(--dim); bord
 </style></head><body>
 <header>
   <h1>__TITLE__</h1>
+  <select id="year" title="Which year's images to show"></select>
   <input id="q" type="search" placeholder="Search name, channels, notes…" autofocus>
   <select id="type"><option value="">All types</option></select>
   <select id="objective"><option value="">All objectives</option></select>
@@ -374,21 +407,34 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 [...new Set(DATA.map(s => s.type).filter(Boolean))].sort().forEach(t => $("type").insertAdjacentHTML("beforeend", `<option>${esc(t)}</option>`));
 [...new Set(DATA.map(s => s.objective).filter(Boolean))].sort().forEach(t => $("objective").insertAdjacentHTML("beforeend", `<option>${esc(t)}</option>`));
 [...new Set(DATA.map(s => s.genotype).filter(Boolean))].sort().forEach(t => $("genotype").insertAdjacentHTML("beforeend", `<option>${esc(t)}</option>`));
+// Year: the page opens on the newest year; 'before' is every older year, 'all' every year with the
+// newest first. Kept in the address (?year=2024) like the tab.
+const YEARS = [...new Set(DATA.map(s => s.year).filter(Boolean))].sort().reverse();
+const NEWEST = YEARS[0] || "";
+let YEAR = new URLSearchParams(location.search).get("year") || NEWEST;
+const yearOptions = [...YEARS.map(y => [y, y]), ...(YEARS.length > 2 ? [["before", "Before " + NEWEST]] : []), ...(YEARS.length > 1 ? [["all", "All years"]] : [])];
+if (!yearOptions.some(o => o[0] === YEAR)) YEAR = NEWEST;
+$("year").innerHTML = yearOptions.map(([v, text]) => `<option value="${v}">${text} · ${v === "all" ? DATA.length : DATA.filter(s => v === "before" ? s.year !== NEWEST : s.year === v).length}</option>`).join("");
+$("year").value = YEAR;
+$("year").hidden = YEARS.length < 2;
+$("year").addEventListener("input", () => { YEAR = $("year").value; address(); tabs(); draw(); });
+const inYear = s => YEAR === "all" || (YEAR === "before" ? s.year !== NEWEST : s.year === YEAR);
+const address = () => { const q = new URLSearchParams(); if (YEAR !== NEWEST) q.set("year", YEAR); if (TAB) q.set("tab", TAB);
+  history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "")); };
 // Tabs: how many antibody channels show signal. The tab is kept in the address (?tab=double) so it can be shared.
 const TABS = [["", "All"], ["pan", "Pan only"], ["single", "Single label"], ["double", "Double label"], ["triple", "Triple label"]];
 let TAB = new URLSearchParams(location.search).get("tab") || "";
 if (!TABS.some(t => t[0] === TAB)) TAB = "";
 function tabs() {
   $("tabs").innerHTML = TABS.map(([key, text]) => {
-    const n = key ? DATA.filter(s => s.label_kind === key).length : DATA.length;
+    const n = DATA.filter(s => inYear(s) && (!key || s.label_kind === key)).length;
     return n || !key ? `<button data-tab="${key}" class="${key === TAB ? "on" : ""}">${text}<span>${n}</span></button>` : "";
   }).join("");
 }
 $("tabs").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   TAB = b.dataset.tab;
-  history.replaceState(null, "", location.pathname + (TAB ? "?tab=" + TAB : ""));
-  tabs(); draw();
+  address(); tabs(); draw();
 });
 // One chip per channel, a dot in the channel's Neuroglancer colour; hollow and dashed when the channel shows no signal.
 const chips = s => (s.chips || []).map(c => `<span class="chip${c.dark ? " dark" : ""}" style="--c:${esc(c.colour)}" title="${esc(c.title)}${c.dark ? " (no signal)" : ""}"><i></i>${esc(c.text)}</span>`).join("");
@@ -397,7 +443,7 @@ let shown = [];
 function draw() {
   const q = $("q").value.trim().toLowerCase(), type = $("type").value, sort = $("sort").value, rated = $("rated").checked;
   const measured = $("measured").checked, objective = $("objective").value, genotype = $("genotype").value;
-  shown = DATA.filter(s => (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
+  shown = DATA.filter(s => inYear(s) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
     (!type || s.type === type) && (!rated || s.rating != null) && (!measured || s.exf != null) &&
     (!q || q.split(/\s+/).every(w => (s.name + " " + s.channels + " " + s.notes + " " + s.type + " " + s.date + " " + s.antibody + " " + (s.combo || "") + " " + (s.genotype || "") + " " + (s.chips || []).map(c => c.text).join(" ")).toLowerCase().includes(w))));
   const by = { name:(a,b)=>a.name.localeCompare(b.name), date:(a,b)=>b.date.localeCompare(a.date),
@@ -406,9 +452,13 @@ function draw() {
                enrich:(a,b)=>(b.ab_enrich ?? -1)-(a.ab_enrich ?? -1), labelled:(a,b)=>(b.ab_labelled ?? -1)-(a.ab_labelled ?? -1) }[sort];
   shown.sort(by);
   if (grouped()) shown.sort((a, b) => (a.combo || "").localeCompare(b.combo || "") || a.name.localeCompare(b.name));   // by combination of antibodies
-  const heading = (s, i) => grouped() && (i === 0 || shown[i - 1].combo !== s.combo)
-    ? `<div class="group">${esc(s.combo || "combination not known")} · ${shown.filter(x => x.combo === s.combo).length}</div>` : "";
-  $("count").textContent = `${shown.length} of ${DATA.length} samples · built ${BUILT}`;
+  const several = new Set(shown.map(s => s.year)).size > 1;
+  if (several) shown.sort((a, b) => (b.year || "").localeCompare(a.year || ""));   // stable: the newest year first, each sorted as chosen
+  const heading = (s, i) => (several && (i === 0 || shown[i - 1].year !== s.year)
+      ? `<div class="group yr">${esc(s.year || "year not known")} · ${shown.filter(x => x.year === s.year).length}</div>` : "") +
+    (grouped() && (i === 0 || shown[i - 1].combo !== s.combo || shown[i - 1].year !== s.year)
+      ? `<div class="group">${esc(s.combo || "combination not known")} · ${shown.filter(x => x.combo === s.combo && x.year === s.year).length}</div>` : "");
+  $("count").textContent = `${shown.length} of ${DATA.filter(inYear).length} samples · built ${BUILT}`;
   $("grid").innerHTML = shown.length ? shown.map((s,i) => `${heading(s, i)}
     <div class="card" tabindex="0" data-i="${i}">
       <img loading="lazy" src="${s.card}" alt="">
@@ -532,9 +582,12 @@ def server_copy(base, samples, password=None):
 
     from PIL import Image
 
-    def packed(relative, px, quality):
+    def packed(relative, px, quality, sample=None):
+        root, local = (sample or {}).get("root", ""), Path((sample or {}).get("_base") or base)
+        if root and relative.startswith(root):
+            relative = relative[len(root):]
         try:
-            img = Image.open(base / urllib.parse.unquote(relative)).convert("RGB")
+            img = Image.open(local / urllib.parse.unquote(relative)).convert("RGB")
         except Exception:
             return ""
         img.thumbnail((px, px))
@@ -545,18 +598,19 @@ def server_copy(base, samples, password=None):
     carried = []
     for n, sample in enumerate(samples, start=1):
         sample = dict(sample, folder="", synapse_folder="",
-                      review=f"synapse_review.html?sample={urllib.parse.quote(sample['name'])}" if sample.get("synapses") else "")
+                      review=f"synapse_review.html?sample={urllib.parse.quote(sample['name'])}"
+                      if sample.get("synapses") and not sample.get("root") else "")
         pictures = []
         for picture in sample["pictures"]:
             synapse = picture.get("group") == "synapse"
             px, quality = ((SERVER_SYNAPSE_PX, 55) if picture.get("number") else (SERVER_SHEET_PX, 65)) if synapse else (SERVER_THUMB_PX, 70)
-            pictures.append(dict(picture, thumb=packed(picture["thumb"], px, quality), file=""))
+            pictures.append(dict(picture, thumb=packed(picture["thumb"], px, quality, sample), file=""))
         sample["pictures"] = pictures
-        sample["card"] = packed(sample["card"], SERVER_THUMB_PX, 70)
+        sample["card"] = packed(sample["card"], SERVER_THUMB_PX, 70, sample)
         carried.append(sample)
         if n % 20 == 0:
             print(f"   {n}/{len(samples)} samples packed")
-    data = json.dumps(carried, ensure_ascii=False, default=str).replace("</", "<\\/")
+    data = public_json(carried)
     title = GALLERY_TITLE + " (server copy)"
     page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
     page = page.replace("__TITLE__", html.escape(title)).replace(
@@ -695,10 +749,20 @@ def main():
         sys.exit(f"The screenshot folder does not exist yet: {base}\nRun Log_Screenshots.bat first.")
     print(f"Screenshot folder: {base}")
     print("Reading images and making thumbnails (only new or changed images take time)...")
-    samples = collect(base)
+    current = CURRENT_YEAR
+    samples = collect(base, current)
+    for year, paths in older_years():
+        if year == current:
+            continue
+        shots = Path(paths["screenshot_folder"])
+        print(f"Adding {year}: {shots}")
+        older = collect(shots, year, paths["image_list"] or None, paths["synapse_folder"] or None,
+                        root=core.share_url_for(shots).rstrip("/") + "/")
+        print(f"   {len(older)} samples from {year}")
+        samples += older
     if not samples:
         sys.exit("No images found. Run Log_Screenshots.bat first.")
-    data = json.dumps(samples, ensure_ascii=False, default=str).replace("</", "<\\/")
+    data = public_json(samples)
     page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
     page = page.replace("__TITLE__", html.escape(GALLERY_TITLE))
     out = base / GALLERY_NAME

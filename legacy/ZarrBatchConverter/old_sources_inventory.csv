@@ -1,0 +1,93 @@
+file,GB,nx,ny,nz,dx_um,dy_um,dz_um,channels,date,unit,compression
+Y:\2024\ims\20240716_ms8b_expanded_2_FusionStitcher.ims,103.87,7626,18651,304,0.3015,0.3015,2.4916,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-07-16 09:30:05.898,,gzip
+Y:\2024\ims\20240716_ms8b_expanded_6_FusionStitcher.ims,132.35,15149,46319,96,0.1507,0.1507,4.9469,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-07-16 12:52:41.813,,gzip
+Y:\2024\ims\20240716_ms8b_expanded_FusionStitcher.ims,13.42,18656,18603,16,0.3015,0.3015,46.6662,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-07-16 07:55:32.469,,gzip
+Y:\2024\ims\20241006_image_FusionStitcher.ims,193.13,22036,22544,463,0.1005,0.1005,0.4986,Joerg 60x 488new_CF40_Sona02,2024-10-06 19:57:49.559,,gzip
+Y:\2024\ims\20241006_image_FusionStitcherBC.ims,192.52,22036,22544,463,0.1005,0.1005,0.4986,Joerg 60x 488new_CF40_Sona02,2024-10-06 19:57:49.559,,gzip
+Y:\2024\ims\20241215_8B_tip_CA3_ii_2x2_FusionStitcher.ims,13.93,3899,3896,961,0.1507,0.1507,0.2497,Joerg 60x 638new_CF40_Sona01,2024-12-15 15:39:37.737,,gzip
+Y:\2024\ims\20241215_8B_tip_CA3_ii_60x_FusionStitcher.ims,11.85,3880,3889,892,0.1005,0.1005,0.2497,Joerg 60x 638new_CF40_Sona01,2024-12-15 16:07:00.707,,gzip
+Y:\2024\ims\20241215_8B_tip_CA3_iii_2x2_1_FusionStitcher.ims,18.18,3890,3896,1228,0.1507,0.1507,0.2498,Joerg 60x 638new_CF40_Sona01,2024-12-15 15:13:09.711,,gzip
+Y:\2024\ims\20241215_8B_tip_CA3_iii_60x_FusionStitcher.ims,15.24,3870,3902,1130,0.1005,0.1005,0.2498,Joerg 60x 638new_CF40_Sona01,2024-12-15 16:39:49.132,,gzip
+Y:\2024\ims\20241215_8B_tip_CA3_iv_2x2_FusionStitcher.ims,27.32,3894,3901,1595,0.1507,0.1507,0.2498,Joerg 60x 638new_CF40_Sona01,2024-12-15 14:37:42.799,,gzip
+Y:\2024\ims\20241215_8B_tip_CA3_iv_60x_FusionStitcher.ims,15.42,3855,3909,1135,0.1005,0.1005,0.2498,Joerg 60x 638new_CF40_Sona01,2024-12-15 17:11:07.199,,gzip
+Y:\2024\ims\20x-overview01_2_FusionStitcher.ims,0.22,9527,9486,2,0.3015,0.3015,1.0,SIM_647_CF40 Sona 1 | SIM_488_CF40 Sona 1,2024-03-12 12:17:25.151,,gzip
+Y:\2024\ims\20x-overview01_3_FusionStitcher.ims,0.22,9444,9430,2,0.3015,0.3015,1.0,SIM_647_CF40 Sona 1 | SIM_488_CF40 Sona 1,2024-03-12 12:19:24.113,,gzip
+Y:\2024\ims\20x-overview02_1_FusionStitcher.ims,0.1,13863,1569,2,1.2059,1.2059,1.0,SIM_647_CF40 Sona 1 | SIM_561_CF40 Sona 1 | SIM_488_CF40 Sona 1,2024-03-12 10:28:14.777,,gzip
+Y:\2024\ims\20x-overview02_2_FusionStitcher.ims,0.04,13854,649,2,1.2059,1.2059,1.0,SIM_647_CF40 Sona 1 | SIM_561_CF40 Sona 1 | SIM_488_CF40 Sona 1,2024-03-12 10:36:38.359,,gzip
+Y:\2024\ims\20x-overview02_3_FusionStitcher.ims,0.77,18467,4800,4,1.2059,1.2059,100.0,SIM_647_CF40 Sona 1 | SIM_488_CF40 Sona 1,2024-03-12 11:48:59.052,,gzip
+Y:\2024\ims\20x-overview02_FusionStitcher.ims,0.04,13853,643,2,1.2059,1.2058,1.0,SIM_647_CF40 Sona 1 | SIM_561_CF40 Sona 1 | SIM_488_CF40 Sona 1,2024-03-12 10:19:20.882,,gzip
+Y:\2024\ims\20x-overviewtest01_1_FusionStitcher.ims,0.17,7309,5579,11,0.3015,0.3015,1.0,SIM_647_CF40 Sona 1 | SIM_561_CF40 Sona 1 | SIM_488_CF40 Sona 1,2024-03-12 09:49:02.723,,gzip
+Y:\2024\ims\20x-overviewtest01_3_FusionStitcher.ims,0.32,17716,17717,2,0.3015,0.3015,1.0,SIM_647_CF40 Sona 1,2024-03-12 10:03:43.416,,gzip
+Y:\2024\ims\20x-overviewtest01_FusionStitcher.ims,0.06,7316,5575,2,0.3015,0.3015,1.0,SIM_647_CF40 Sona 1,2024-03-12 09:27:46.002,,gzip
+Y:\2024\ims\240628_ms8_b_1_FusionStitcher.ims,59.9,14854,3343,562,0.3015,0.3015,0.4989,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-06-28 18:37:24.723,,gzip
+Y:\2024\ims\240629_ms8_b_4_FusionStitcher.ims,43.56,6308,6224,392,0.3015,0.3015,0.4987,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-06-29 20:27:01.103,,gzip
+Y:\2024\ims\240629_ms8_b_FusionStitcher.ims,175.57,15181,15176,461,0.1005,0.1005,0.4987,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-06-29 14:33:02.015,,gzip
+Y:\2024\ims\240713_ms8b_20xshrunk_3_STITCH.ims,141.01,20940,27078,90,0.9044,0.9044,4.9438,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-08-05 21:01:54.098,,gzip
+Y:\2024\ims\240718_ms8_b_expanded_1.ims,166.55,31511,25986,106,0.1507,0.1507,4.9524,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-07-30 16:21:07.172,,gzip
+Y:\2024\ims\240718_ms8_b_expanded_1_STITCH.ims,166.55,31511,25986,106,0.1507,0.1507,4.9524,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-07-18 17:14:31.058,,gzip
+Y:\2024\ims\240721_ms8_b_60x_expanded_STITCH.ims,25.59,,,,,,,,ERROR KeyError: 'Unable to synchronously open object (component not found)',,
+Y:\2024\ims\60x_11_FusionStitcher.ims,19.48,9413,3916,216,0.1005,0.1005,0.4975,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-03 10:39:04.163,,gzip
+Y:\2024\ims\60x_13_FusionStitcher.ims,17.71,15375,81922,7,0.1005,0.1005,33.3329,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-03 11:27:26.529,,gzip
+Y:\2024\ims\60x_14_FusionStitcher.ims,84.88,5793,18676,345,0.1005,0.1005,0.4983,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-03 12:21:48.897,,gzip
+Y:\2024\ims\8B_CA3_ii_FusionStitcher.ims,18.92,5755,5775,610,0.1507,0.1507,0.2496,Joerg 60x 638new_CF40_Sona01,2024-11-17 13:10:24.157,,gzip
+Y:\2024\ims\8B_CA3_iii_FusionStitcher.ims,36.29,5692,5999,1165,0.1507,0.1507,0.2498,Joerg 60x 638new_CF40_Sona01,2024-11-17 14:06:23.893,,gzip
+Y:\2024\ims\8B_CA3_iv_FusionStitcher.ims,35.47,5736,5854,1254,0.1507,0.1507,0.2498,Joerg 60x 638new_CF40_Sona01,2024-11-17 15:07:02.533,,gzip
+Y:\2024\ims\AC_240713_ms8b_Stitch.ims,47.74,,,,,,,,"ERROR OSError: Unable to synchronously open file (truncated file: eof = 47735463078, sblock->base_addr = 0, stored_eof =",,
+Y:\2024\ims\GFP-PAN-Soma-20X_2024-07-10_16.04.57.ims,2.6,2048,2046,119,0.3015,0.3015,0.9916,488_GFP_CF40_Sona001 | 637_Cy5_CF40_Sona01,2024-07-10 16:04:58.457,,none
+Y:\2024\ims\ms5_bottom_a_1_FusionStitcher.ims,10.41,11236,9382,33,0.3015,0.3015,4.8439,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-20 14:41:00.084,,gzip
+Y:\2024\ims\ms5_bottom_aa_FusionStitcher.ims,26.4,17104,36663,18,0.3015,0.3015,9.375,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-20 16:24:56.387,,gzip
+Y:\2024\ims\ms5_bottom_c_FusionStitcher.ims,11.55,28076,36370,5,0.3015,0.3015,30.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-21 07:42:46.783,,gzip
+Y:\2024\ims\ms5_btm_d_1_FusionStitcher.ims,66.59,9433,9485,319,0.1005,0.1005,0.4983,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-06-12 10:40:06.020,,gzip
+Y:\2024\ims\ms5_btm_d_2_FusionStitcher.ims,23.49,16866,11294,52,0.1005,0.1005,2.9412,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-06-12 11:25:41.444,,gzip
+Y:\2024\ims\ms5_btm_d_FusionStitcher.ims,166.12,14865,15301,359,0.1005,0.1005,0.4983,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-06-12 08:53:11.754,,gzip
+Y:\2024\ims\ms5_top_a_FusionStitcher.ims,1.57,11826,12380,5,0.3015,0.3015,30.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-20 08:39:52.075,,gzip
+Y:\2024\ims\ms5_top_a_i_2_FusionStitcher.ims,48.34,28272,31763,29,0.1005,0.1005,4.8214,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-20 11:55:06.184,,gzip
+Y:\2024\ims\ms5_top_a_i_6_FusionStitcher.ims,12.27,23660,24100,9,0.3014,0.3015,35.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-20 14:00:50.265,,gzip
+Y:\2024\ims\ms5_top_a_i_FusionStitcher.ims,48.66,5857,15039,293,0.1005,0.1005,0.4982,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-20 09:38:44.830,,gzip
+Y:\2024\ims\ms5b_btm_v_1_FusionStitcher_8bit.ims,5.4,7672,11316,98,0.1005,0.1005,2.4743,Joerg 60x 638new_CF40_Sona01,2024-05-27 17:07:08.524,,gzip
+Y:\2024\ims\ms7b_bottom_2_1_FusionStitcher.ims,0.6,3116,1929,42,0.3015,0.3015,19.375,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 17:26:59.737,,gzip
+Y:\2024\ims\ms7b_bottom_2_2_FusionStitcher.ims,4.82,3836,18484,54,0.3015,0.3015,38.2607,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 18:01:18.595,,gzip
+Y:\2024\ims\ms7b_bottom_5_FusionStitcher.ims,4.65,12409,8081,26,0.3015,0.3015,75.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 16:22:44.221,,gzip
+Y:\2024\ims\ms7b_bottom_6_FusionStitcher.ims,4.4,5655,8719,51,0.3015,0.3015,38.7096,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 16:46:08.791,,gzip
+Y:\2024\ims\ms7b_bottom_7_FusionStitcher.ims,4.81,6241,8695,45,0.3015,0.3015,38.7096,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 17:12:56.793,,gzip
+Y:\2024\ims\ms7b_top_2_1_FusionStitcher.ims,12.74,3910,3899,356,0.1005,0.1005,0.4986,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 20:31:06.763,,gzip
+Y:\2024\ims\ms7b_top_2_FusionStitcher.ims,10.27,20424,9348,32,0.3015,0.3015,23.75,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 19:16:58.331,,gzip
+Y:\2024\ims\ms7b_top_3_1_FusionStitcher.ims,11.24,11324,11265,47,0.1005,0.1005,0.4891,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 20:56:41.672,,gzip
+Y:\2024\ims\ms7b_top_4_FusionStitcher.ims,34.65,29697,25997,27,0.1005,0.1005,37.647,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 19:58:54.832,,gzip
+Y:\2024\ims\ms7b_top_FusionStitcher.ims,3.03,5608,5022,55,0.3015,0.3015,19.5555,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-14 18:27:14.837,,gzip
+Y:\2024\ims\ms7e_iii_20x_2_FusionStitcher.ims,36.25,3892,5737,1117,0.3015,0.3015,0.4995,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-08-11 13:35:10.229,,gzip
+Y:\2024\ims\ms7e_iv_20x_FusionStitcher.ims,155.79,9466,9522,1247,0.3015,0.3015,0.4996,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-08-11 16:23:41.210,,gzip
+Y:\2024\ims\ms8a_i_FusionStitcher.ims,9.06,51796,90474,1,0.1005,0.1005,1.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-15 21:43:23.670,,gzip
+Y:\2024\ims\ms8ai_12_FusionStitcher.ims,27.02,9981,8739,126,0.3015,0.3015,1.9837,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 12:25:18.249,,gzip
+Y:\2024\ims\ms8ai_15_FusionStitcher.ims,3.59,24085,10644,14,0.3015,0.3015,32.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 13:24:15.017,,gzip
+Y:\2024\ims\ms8ai_17_FusionStitcher.ims,89.75,11135,7698,401,0.1005,0.1005,0.4987,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 14:16:31.689,,gzip
+Y:\2024\ims\ms8ai_1_FusionStitcher.ims,1.77,5030,24164,6,0.3015,0.3014,32.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 09:07:18.113,,gzip
+Y:\2024\ims\ms8ai_20_FusionStitcher.ims,127.93,14766,9604,408,0.1005,0.1005,0.4987,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 16:08:33.868,,gzip
+Y:\2024\ims\ms8ai_21_FusionStitcher_F0.ims,5.61,2046,3888,20,0.1507,0.1507,1.6,488_GFP_CF40_Sona001 | Brightfield Sona 001,2024-05-09 06:51:03.446,,gzip
+Y:\2024\ims\ms8ai_21_FusionStitcher_F1.ims,5.2,2056,3888,6,0.1507,0.1507,1.6,488_GFP_CF40_Sona001 | Brightfield Sona 001,2024-05-09 06:52:58.611,,gzip
+Y:\2024\ims\ms8ai_21_FusionStitcher_F2.ims,4.85,2051,3887,6,0.1507,0.1507,1.6,488_GFP_CF40_Sona001 | Brightfield Sona 001,2024-05-09 06:54:29.923,,gzip
+Y:\2024\ims\ms8ai_4_FusionStitcher.ims,0.85,15509,2536,8,0.3015,0.3015,34.285,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 10:06:08.406,,gzip
+Y:\2024\ims\ms8ai_6_FusionStitcher.ims,2.28,15499,3772,14,0.3015,0.3015,18.4614,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 10:28:03.238,,gzip
+Y:\2024\ims\ms8ai_7_FusionStitcher.ims,1.24,3784,8088,14,0.3015,0.3015,18.4614,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-08 10:56:06.575,,gzip
+Y:\2024\ims\ms8aii_2_FusionStitcher.ims,187.9,9388,42900,202,0.1005,0.1005,2.4873,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-15 17:12:04.053,,gzip
+Y:\2024\ims\ms8aii_3_FusionStitcher.ims,94.07,4216,13348,981,0.1005,0.1005,0.4995,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-15 19:01:55.063,,gzip
+Y:\2024\ims\ms8aii_4_FusionStitcher.ims,5.98,38876,83309,1,0.1005,0.1005,1.0,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-15 20:10:43.833,,gzip
+Y:\2024\ims\ms8B_LO2_ii_FusionStitcher.ims,259.16,9421,9413,1752,0.3015,0.3015,0.4997,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-08-26 09:07:01.891,,gzip
+Y:\2024\ims\ms8B_LO_iii_2_FusionStitcher3rdattempt.ims,207.32,9422,7571,1836,0.3015,0.3015,0.2499,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-08-28 23:01:23.946,,gzip
+Y:\2024\ims\ms8B_LO_iii_2_FusionStitcher_182727.ims,152.08,,,,,,,,ERROR KeyError: 'Unable to synchronously open object (component not found)',,
+Y:\2024\ims\Overview20x_1_FusionStitcher.ims,0.18,2516,1314,22,0.9044,0.9045,9.5241,488_GFP_CF25_Sona01 | 561_RFP_CF25_Sona01,2023-10-25 08:45:19.086,,gzip
+Y:\2024\ims\Overview20x_8_FusionStitcher.ims,6.21,5917,2048,715,0.1005,0.1005,0.2989,488_GFP_CF25_Sona01 | 561_RFP_CF25_Sona01,2023-10-25 09:22:41.343,,gzip
+Y:\2024\ims\Overview20x_FusionStitcher.ims,0.14,1925,2532,12,0.9044,0.9044,18.1817,488_GFP_CF25_Sona01 | 561_RFP_CF25_Sona01,2023-10-25 08:35:57.723,,gzip
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Nyquist Sampled Z-Stack - Denoised.nd2,3.42,2048,2048,408,0.1708,0.1708,0.6592,640,11/18/2024  3:20:44 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Z-Stack - Denoised.nd2,1.14,2048,2048,136,0.4271,0.4271,2.0,640,11/18/2024  3:13:45 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Z-stack Nyquist 2.nd2,3.42,2048,2048,408,0.1708,0.1708,0.6592,640,11/18/2024  3:20:44 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Air Z-stack.nd2,1.14,2048,2048,136,0.4271,0.4271,2.0,640,11/18/2024  3:13:45 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\20X Tile Test.nd2,0.06,5996,4971,1,0.1708,0.1708,0,640,11/18/2024  4:44:56 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\40X WI Z-Stack - Denoised.nd2,4.65,2048,2048,554,0.1349,0.1349,0.6592,640,11/18/2024  3:30:27 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\40X WI Z-Stack NSPARC.nd2,3.16,2048,2048,377,0.0719,0.0719,0.3581,Cy5,11/18/2024  3:58:19 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\40X WI Z-Stack Nyquist.nd2,4.65,2048,2048,554,0.1349,0.1349,0.6592,640,11/18/2024  3:30:27 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\60X Nyquist Z-Stack - Denoised.nd2,1.07,2048,2048,127,0.1151,0.1151,0.1949,640,11/18/2024  4:13:38 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\60X Oil Z-Stack NSPARC.nd2,0.54,2048,2048,64,0.0575,0.0575,0.12,Cy5,11/18/2024  4:19:53 PM,um,P=1 T=1
+Y:\2024\Nikon AXR + Ji Microscope Demo\60X Oil Z-Stack.nd2,1.07,2048,2048,127,0.1151,0.1151,0.1949,640,11/18/2024  4:13:38 PM,um,P=1 T=1
+X:\nginx_share\exm\20241006_image_FusionStitcher.ims,193.13,22036,22544,463,0.1005,0.1005,0.4986,Joerg 60x 488new_CF40_Sona02,2024-10-06 19:57:49.559,,gzip
+X:\nginx_share\exm\60x_13_FusionStitcher.ims,17.71,15375,81922,7,0.1005,0.1005,33.3329,Joerg 60x 638new_CF40_Sona01 | Joerg 60x 488new_CF40_Sona02,2024-05-03 11:27:26.529,,gzip

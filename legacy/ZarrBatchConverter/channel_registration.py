@@ -53,7 +53,7 @@ def load(folder=None):
     path = (Path(folder) / REGISTRY_NAME) if folder else registry_path()
     key = str(path)
     stamp = path.stat().st_mtime if path.is_file() else None
-    if _cache.get(key, (None,))[0] != stamp:
+    if key not in _cache or _cache[key][0] != stamp:      # a folder with no record yet caches {} too
         table = {}
         if stamp:
             for name, entry in json.loads(path.read_text(encoding="utf-8")).get("samples", {}).items():

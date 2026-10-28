@@ -107,7 +107,9 @@ _images = Path.home() / "OneDrive - Yale University" / "09_Data & Imaging" / "Im
 DEFAULT_SHOTS = str((_images / "2026" if _images.is_dir() else Path.home() / "Documents") / "Zarr Screenshots")
 DEFAULT_WORK = ""       # blank = the Windows temp folder
 CONVERTER_HOME = ""     # blank = look in the usual install locations
-SETTINGS_FILE = Path(__file__).with_name("settings.ini")
+# ZBC_SETTINGS names another settings file (beside this one, or a full path), so one run can work
+# on another year's folders (settings_2024.ini) without touching the 2026 setup
+SETTINGS_FILE = Path(__file__).parent / (os.environ.get("ZBC_SETTINGS") or "settings.ini")
 CONVERTER_DOWNLOAD = "https://github.com/glencoesoftware/NGFF-Converter/releases/latest"
 
 # Local folder name that the lab web server publishes, and the URL it maps to.
@@ -116,6 +118,10 @@ SERVER_URL = "https://neuroglancer.kuanlab.yale.edu/data/"
 # The same folder at the address for sharing pages and pictures with people (the folder name is kept in it).
 SHARE_URL = "https://images.kuanlab.yale.edu/nginx_share/"
 NG_VIEWER = "https://neuroglancer-demo.appspot.com/"
+# [analysis] single_channel_pan = yes: an image with ONE channel is the pan stain when that channel
+# is dense (PAN_MIN_LIFT, PAN_MIN_FILL). Off for 2026, where one channel is a single-label antibody
+# test; on for the 2023-2024 pan-only stacks (settings_2024.ini).
+SINGLE_CHANNEL_PAN = False
 
 B2R_MAIN = "com.glencoesoftware.bioformats2raw.Converter"
 STATE_DIR = "_ng_states"
@@ -128,6 +134,7 @@ FAILED_NAME = "_failed.json"  # failures are remembered here until the file conv
 def load_settings():
     """Apply settings.ini (written by First_Time_Setup.bat) over the defaults above."""
     global DEFAULT_OUT, DEFAULT_LIST, DEFAULT_NOTES, DEFAULT_STITCHED, DEFAULT_SHOTS, DEFAULT_WORK, CONVERTER_HOME, SERVER_FOLDER, SERVER_URL, SHARE_URL, NG_VIEWER
+    global SINGLE_CHANNEL_PAN
     if not SETTINGS_FILE.is_file():
         return False
     cfg = configparser.ConfigParser(interpolation=None)
@@ -144,6 +151,7 @@ def load_settings():
     SERVER_URL = get("server", "served_url", SERVER_URL).rstrip("/") + "/"
     SHARE_URL = get("server", "share_url", SHARE_URL).rstrip("/") + "/"
     NG_VIEWER = get("server", "neuroglancer", NG_VIEWER).rstrip("/") + "/"
+    SINGLE_CHANNEL_PAN = get("analysis", "single_channel_pan", "no").lower() in ("yes", "y", "true", "1")
     return True
 
 
@@ -884,6 +892,16 @@ def pick_pan(image_name, channels, stats):
         named = [c["index"] for c in channels if c.get("laser") and abs(c["laser"] - int(m.group(1))) <= 15]
         if len(named) == 1:
             return named[0], f"file name says pan{m.group(1)}"
+    if SINGLE_CHANNEL_PAN and len(channels) == 1 and len(stats) == 1:
+        # judged against the channel's own range: with no other channel to compare, a dim camera
+        # (a few tens of counts) is as dense as a bright one. Sparse puncta leave the typical
+        # pixel at the floor (a few % of the range); a pan stain lifts it far off it.
+        st = stats[0]
+        lift, span = st["p50"] - st["p1"], max(st["p999"] - st["p1"], 1)
+        if lift >= max(5, 0.1 * span) and st["fill"] >= PAN_MIN_FILL:
+            return 0, (f"the only channel, and dense: typical pixel {lift:.0f} counts above background, "
+                       f"{100 * lift / span:.0f}% of its range, signal in {100 * st['fill']:.0f}% of pixels (single_channel_pan)")
+        return None, ""
     if len(channels) < 2 or len(stats) != len(channels):
         return None, ""
     lift = [st["p50"] - st["p1"] for st in stats]
@@ -1938,9 +1956,33 @@ def failed_row(src, zarr_dir, error):
     }
 
 
+_LOGGED = {}
+
+
+def logged_source(out_root, zarr_dir):
+    """The source file a zarr was made from, as recorded in the folder's conversion log
+    ('===== <time>  <source path>'), or None. Lets a list rebuilt later still date an
+    old image by its source file."""
+    out_root = Path(out_root)
+    if out_root not in _LOGGED:
+        found = {}
+        try:
+            for line in (out_root / LOG_NAME).read_text(encoding="utf-8", errors="ignore").splitlines():
+                m = re.match(r"===== \d{4}-\d\d-\d\d \d\d:\d\d:\d\d  (.+)$", line)
+                if m:
+                    src = Path(m.group(1).strip())
+                    found[image_stem(src).lower()] = src
+        except OSError:
+            pass
+        _LOGGED[out_root] = found
+    stem = zarr_dir.name[: -len(".zarr")]
+    return _LOGGED[out_root].get((stem[: -len(".ome")] if stem.endswith(".ome") else stem).lower())
+
+
 def build_rows(zarr_dir, out_root, src, status, make_links, refresh):
     """Spreadsheet rows for one zarr (one per image series). `src` is None when the
-    zarr was not made in this run."""
+    zarr was not made in this run; it is then looked up in the conversion log."""
+    src = src or logged_source(out_root, zarr_dir)
     images, ome_objective, ome_microscope, original = read_ome_xml(zarr_dir)
     series_dirs = sorted((d for d in zarr_dir.iterdir() if d.is_dir() and d.name.isdigit()), key=lambda d: int(d.name))
     # Imaris files converted without '--series 0' carry their resolution levels as
@@ -1962,7 +2004,10 @@ def build_rows(zarr_dir, out_root, src, status, make_links, refresh):
         img = images[s] if s < len(images) else {"name": "", "date": "", "channels": []}
         shape, scale = info["shape"], info["scale"]
         channels = describe_channels(img["channels"], info["omero"], shape.get("c", 1))
-        date, note = find_acquisition_date(img["date"], original, [zarr_dir.name], zarr_dir / ".zattrs")
+        # with no date in the file, the source's modified time (kept when an old file is converted
+        # years later); the zarr's own only when the source is gone
+        date, note = find_acquisition_date(img["date"], original, [zarr_dir.name],
+                                           src if src and src.is_file() else zarr_dir / ".zattrs")
         # the original file type survives in the OME image name ('x.ims Resolution Level 1')
         ext = src.suffix.lower() if src else next(
             (e for e in sorted(MICROSCOPE_BY_EXT) if e + " " in img["name"].lower() + " "), "")
