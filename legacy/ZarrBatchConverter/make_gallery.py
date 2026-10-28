@@ -461,6 +461,7 @@ function open_(i) {
       ${s.url ? `<a class="btn go" href="${esc(s.url)}" target="_blank" rel="noopener">Open in Neuroglancer</a>` : ""}
       <a class="btn" href="${s.folder}" target="_blank">Open folder</a>
       ${s.synapse_folder ? `<a class="btn" href="${s.synapse_folder}" target="_blank">Synapse images</a>` : ""}
+      ${s.review ? `<a class="btn go" href="${s.review}" title="Accept or reject this sample's synapses (phone friendly)">Review synapses</a>` : ""}
       <button class="btn" data-go="${i-1}">◀ Previous</button><button class="btn" data-go="${i+1}">Next ▶</button>
       <button class="btn" data-go="x">Close (Esc)</button>
     </div>
@@ -543,7 +544,8 @@ def server_copy(base, samples, password=None):
 
     carried = []
     for n, sample in enumerate(samples, start=1):
-        sample = dict(sample, folder="", synapse_folder="")
+        sample = dict(sample, folder="", synapse_folder="",
+                      review=f"synapse_review.html?sample={urllib.parse.quote(sample['name'])}" if sample.get("synapses") else "")
         pictures = []
         for picture in sample["pictures"]:
             synapse = picture.get("group") == "synapse"
@@ -608,26 +610,33 @@ input { background:transparent; color:var(--text); margin-bottom:10px; }
 button { background:var(--accent); color:#fff; border:none; cursor:pointer; }
 #m { margin-top:12px; min-height:1.5em; }
 </style></head><body><main>
-<h1>__TITLE__</h1><p>This gallery is password protected.</p>
+<h1>__TITLE__</h1><p>This page is password protected.</p>
 <form id="f"><input id="p" type="password" autocomplete="current-password" placeholder="Password" autofocus required><button>Open</button></form>
 <p id="m"></p></main>
 <script>
 (() => {   // its own scope: names declared at the top level would survive document.open and clash with the gallery's own
 const SALT = "__SALT__", IV = "__IV__", ROUNDS = __ROUNDS__, DATA = "__DATA__";
+const REMEMBER = "gallery-unlock", HOURS = 12;   // the password stays on this device for a while, so the gallery and the review page open each other
 const bytes = async s => new Uint8Array(await (await fetch("data:application/octet-stream;base64," + s)).arrayBuffer());
-document.getElementById("f").addEventListener("submit", async e => {
-  e.preventDefault();
-  const m = document.getElementById("m");
-  if (!window.crypto || !crypto.subtle) { m.textContent = "This browser cannot open protected pages here (it needs https)."; return; }
+const m = document.getElementById("m");
+async function unlock(password, typed) {
+  if (!window.crypto || !crypto.subtle) { m.textContent = "This browser cannot open protected pages here (it needs https)."; return false; }
   m.textContent = "Opening...";
   try {
-    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(document.getElementById("p").value), "PBKDF2", false, ["deriveKey"]);
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
     const key = await crypto.subtle.deriveKey({name: "PBKDF2", salt: await bytes(SALT), iterations: ROUNDS, hash: "SHA-256"},
                                               base, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
     const page = await crypto.subtle.decrypt({name: "AES-GCM", iv: await bytes(IV)}, key, await bytes(DATA));
+    try { localStorage.setItem(REMEMBER, JSON.stringify({p: password, until: Date.now() + HOURS * 3600e3})); } catch (e) {}
     document.open(); document.write(new TextDecoder().decode(page)); document.close();
-  } catch (err) { m.textContent = "Wrong password."; }
-});
+    return true;
+  } catch (err) { m.textContent = typed ? "Wrong password." : ""; return false; }
+}
+document.getElementById("f").addEventListener("submit", e => { e.preventDefault(); unlock(document.getElementById("p").value, true); });
+try {   // a password remembered by the gallery or the review page within the last HOURS opens this page too
+  const r = JSON.parse(localStorage.getItem(REMEMBER) || "null");
+  if (r && r.until > Date.now()) unlock(r.p, false); else localStorage.removeItem(REMEMBER);
+} catch (e) {}
 })();
 </script></body></html>"""
 
