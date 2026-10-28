@@ -665,24 +665,35 @@ def describe_microscope(ext, ome_microscope, original):
     return f"{base} ({', '.join(detail)})"
 
 
-# The Dragonfly's objectives (from a Fusion metadata file, 2026-10-28): what a magnification in a
-# channel or file name means when the image itself does not say (Imaris files of 2024 and earlier).
-DRAGONFLY_OBJECTIVES = {"60": "60x / NA 1.2", "40": "40x / NA 1.15", "20": "20x / NA 0.75"}
+OBJECTIVES_FILE = "objectives.csv"   # beside settings.ini: image name, microscope, objective typed by the user
+_OBJECTIVES = None
 
 
-def describe_objective(ome_objective, original, hints=()):
-    """The objective as the file states it; else, for a Dragonfly image, as a '60x' in a channel
-    name or the file name implies (hints), which the user confirmed is always the same lens."""
+def typed_objectives():
+    """{image name (lower): (microscope, objective)} from objectives.csv beside the settings file, for
+    images whose own metadata does not say (Imaris files of 2024 and earlier). Nothing is guessed:
+    an image not in the file stays blank."""
+    global _OBJECTIVES
+    if _OBJECTIVES is None:
+        _OBJECTIVES = {}
+        path = SETTINGS_FILE.with_name(OBJECTIVES_FILE)
+        if path.is_file():
+            import csv
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                for row in csv.DictReader(f):
+                    if (row.get("image") or "").strip():
+                        _OBJECTIVES[row["image"].strip().lower()] = ((row.get("microscope") or "").strip(), (row.get("objective") or "").strip())
+    return _OBJECTIVES
+
+
+def describe_objective(ome_objective, original, image_name=""):
+    """The objective as the file states it, else as typed in objectives.csv, else blank."""
     if ome_objective:
         return ome_objective
     mag, na = original.get("LensPower"), original.get("NumericalAperture")
     if mag:
         return f"{mag}x" + (f" / NA {na}" if na else "")
-    for hint in hints:
-        m = re.search(r"(?<![0-9])(60|40|20)[xX](?![0-9])", str(hint or ""))
-        if m:
-            return DRAGONFLY_OBJECTIVES[m.group(1)]
-    return ""
+    return typed_objectives().get(image_name.lower(), ("", ""))[1]
 
 
 def to_float(x):
@@ -2037,8 +2048,7 @@ def build_rows(zarr_dir, out_root, src, status, make_links, refresh):
                 "Image Name": name,
                 "Date Acquired": date.date() if date else None,
                 "Microscope": describe_microscope(ext, ome_microscope, original),
-                "Objective": describe_objective(ome_objective, original,
-                                                [c.get("Name", "") for c in img["channels"]] + [stem] if ext == ".ims" else ()),
+                "Objective": describe_objective(ome_objective, original, name),
                 "Size X × Y × Z": f"{shape.get('x', 1)} × {shape.get('y', 1)} × {shape.get('z', 1)}",
                 "C": shape.get("c", 1), "T": shape.get("t", 1),
                 "Voxel X, Y, Z (µm)": voxel,

@@ -73,6 +73,9 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   <div class="controls">
     <select id="sample" aria-label="Sample"><option>All samples</option></select>
     <button class="toggle" id="fUnrev" aria-pressed="true">Unreviewed only</button>
+    <select id="show" aria-label="Which decisions to show" title="Revisit what you decided: unsure, rejected or accepted synapses">
+      <option value="all">Show: all</option><option value="none">Show: undecided</option><option value="u">Show: unsure</option>
+      <option value="N">Show: rejected</option><option value="Y">Show: accepted</option></select>
     <button class="toggle" id="fAb" aria-pressed="false">Antibody-positive</button>
     <button class="toggle" id="fIn" aria-pressed="false">ExF 16 to 24</button>
     <select id="order" aria-label="Order">
@@ -128,7 +131,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const load = () => { try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); state.local = o.d || {}; state.samples = o.s || {}; state.exportedAt = o.exportedAt || null; } catch (e) { state.local = {}; state.samples = {}; }
     for (const d of Object.values(state.local)) if (d.accept === "?") d.accept = "u"; };   // the mark used before 2026-10-28
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ d: state.local, s: state.samples, exportedAt: state.exportedAt })); } catch (e) { toast("Could not save in this browser"); } };
-  const remember = () => { try { localStorage.setItem(PREFS, JSON.stringify({ sample: $("sample").value, order: $("order").value,
+  const remember = () => { try { localStorage.setItem(PREFS, JSON.stringify({ sample: $("sample").value, order: $("order").value, show: $("show").value,
     unrev: $("fUnrev").getAttribute("aria-pressed"), ab: $("fAb").getAttribute("aria-pressed"), inr: $("fIn").getAttribute("aria-pressed"),
     zoom: $("stage").classList.contains("zoom") })); } catch (e) {} };
   const setZoom = on => { $("stage").classList.toggle("zoom", on); $("zoomLink").textContent = on ? "Zoom 1x" : "Zoom 2x"; remember(); };
@@ -140,10 +143,12 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const decisionOf = r => state.local[r.k] || (r.acc || r.notes ? { accept: r.acc || null, notes: r.notes || "", baked: true } : null);
 
   function applyFilter(keepIndex) {
-    const sample = $("sample").value, unrev = $("fUnrev").getAttribute("aria-pressed") === "true";
+    const sample = $("sample").value, unrev = $("fUnrev").getAttribute("aria-pressed") === "true", show = $("show").value;
+    const verdict = r => { const d = decisionOf(r); return d && d.accept ? d.accept : ""; };
     const ab = $("fAb").getAttribute("aria-pressed") === "true", inr = $("fIn").getAttribute("aria-pressed") === "true";
     const cur = state.filtered[state.i];
-    const rows = ROWS.filter(r => (sample === "All samples" || r.s === sample) && (!ab || r.abp) && (!inr || r.in) && (!unrev || !(decisionOf(r) && decisionOf(r).accept)));
+    const rows = ROWS.filter(r => (sample === "All samples" || r.s === sample) && (!ab || r.abp) && (!inr || r.in) && (!unrev || !verdict(r))
+      && (show === "all" || (show === "none" ? !verdict(r) : verdict(r) === show)));
     const order = $("order").value;
     if (order === "score") rows.sort((a, b) => (b.score || 0) - (a.score || 0));
     else if (order === "exf") rows.sort((a, b) => (a.exf || 99) - (b.exf || 99));
@@ -268,6 +273,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   $("zoomLink").onclick = e => { e.preventDefault(); setZoom(!$("stage").classList.contains("zoom")); };
   for (const id of ["fUnrev", "fAb", "fIn"]) $(id).onclick = () => { const b = $(id); b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); applyFilter(false); };
   $("sample").onchange = () => applyFilter(false); $("order").onchange = () => applyFilter(true);
+$("show").onchange = () => applyFilter(true);
   // Swipe and double-tap. Touch events are used on phones (Android cancels pointer events once it decides a
   // finger is scrolling); mouse pointer events on a desktop.
   const stage = $("stage"); let sx = null, sy = null, lastTap = 0;
@@ -288,6 +294,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   if (want && [...$("sample").options].some(o => o.value === want)) $("sample").value = want;
   if (saved.order) $("order").value = saved.order;
   if (saved.unrev) $("fUnrev").setAttribute("aria-pressed", saved.unrev);
+  if (saved.show && [...$("show").options].some(o => o.value === saved.show)) $("show").value = saved.show;
   if (saved.ab) $("fAb").setAttribute("aria-pressed", saved.ab); if (saved.inr) $("fIn").setAttribute("aria-pressed", saved.inr);
   if (saved.zoom === false) setZoom(false);
   applyFilter(false);

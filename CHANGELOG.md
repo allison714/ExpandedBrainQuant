@@ -14,7 +14,8 @@ First tagged release. Repository to be renamed pan-ExM Gallery (was ExpandedBrai
 - Power estimate from between-animal variance (`scripts/power_estimate.py`).
 - Gallery: sorted by antibody density by default; single-plane images (tiles, flat montages) hidden unless the 'single-plane images' box is ticked, then listed after the z-stacks; hover text explains every badge, tab and metric (ExF formula included); 'updated <date time>' in the top bar with the full provenance stamp on hover.
 - Synapse Review: the unsure mark is 'u' (was '?'); earlier '?' decisions are read as 'u'.
-- Image list: Imaris files with no objective in their metadata take it from a '60x', '40x' or '20x' in a channel or file name, mapped to the Dragonfly's lenses (user-confirmed: 60x is always NA 1.2 water).
+- Image list: Imaris files with no objective in their metadata take it from `objectives.csv` beside the settings file (image, objective), typed by the user; nothing is guessed from names.
+- Synapse Review: a Show selector to revisit decisions (all, undecided, unsure, rejected, accepted), remembered with the other preferences.
 - Gallery: a Setup selector (microscope and objective) with a metrics strip for the shown samples: samples, volumes (z step 2 um or less), pixel size, z steps, median ExF and resolution, synapses logged and reviewed; the detail table gets a Sampling line. For picking a homogeneous set for 3D work.
 - Synapse Review: datasets ordered newest first (acquisition date from the image list), dates shown in the sample list.
 - Server copy of the gallery: pictures, "Open folder" and "Synapse images" now link to the full-size files in the server mirror (and to each older year's own server folder); the notice says only that the pictures inside the page are reduced. The lock page reloads itself when the browser restores it from cache after Back.
