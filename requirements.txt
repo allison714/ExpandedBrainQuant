@@ -1,16 +1,20 @@
-# Union of what the .bat files install on first run.
-# numpy and contourpy are pinned so pip does not swap in an old numpy, which breaks zarr 3.
-numpy>=2
-zarr>=3
-scipy
-scikit-image
+# Versions the analysis ran with on the lab's analysis PC (Python 3.12, Windows 11) as of 2026-10-28.
+# numpy and contourpy are pinned at or above 2 and 1.3 because an older numpy breaks zarr 3.
+# Install:  pip install -r requirements.txt    (the .bat launchers install the subset they need on first run)
+numpy==2.4.4
+scipy==1.16.1
+scikit-image==0.26.0
+zarr==3.1.6
 dask[array]
-matplotlib
-contourpy>=1.3
-openpyxl
+matplotlib==3.11.2
+contourpy==1.3.3
+openpyxl==3.1.5
 pillow
-fsspec[http]
+fsspec[http]==2026.4.0
 aiohttp
+cryptography>=42        # password-locked gallery and review pages
+statsmodels==0.14.5     # scripts/power_estimate.py (scipy alone is enough for the core)
 
-# Optional: ab_efficiency.py --napari NAME
-# napari[all]
+# Reports (gallery_report/): reportlab==5.0.1 pypdf==6.21.0 pymupdf==1.28.2
+# Tests: pytest==8.4.2
+# Optional: napari[all] for ab_efficiency.py --napari

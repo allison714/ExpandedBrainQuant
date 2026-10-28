@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below, and cite the method paper for the expansion-factor measurement and the synapse classes."
+title: "pan-ExM Gallery: browse, review and quantify pan-expansion microscopy volumes"
+version: 0.1.0
+date-released: 2026-10-28
+authors:
+  - family-names: Cairns
+    given-names: Allison M.
+    affiliation: "Kuan Lab and Bewersdorf Lab, Yale University"
+    orcid: ""
+repository-code: "https://github.com/allison714/ExpandedBrainQuant"
+license: MIT
+keywords:
+  - expansion microscopy
+  - pan-ExM
+  - synapse
+  - expansion factor
+  - Neuroglancer
+  - OME-Zarr
+  - connectomics
+references:
+  - type: article
+    title: "All-optical visualization of specific molecules in the ultrastructural context of brain tissue"
+    authors:
+      - family-names: M'Saad
+        given-names: Ons
+      - family-names: Cairns
+        given-names: Allison
+      - family-names: Bewersdorf
+        given-names: Joerg
+    journal: Nature Biotechnology
+    year: 2025
+    doi: 10.1038/s41587-025-02905-4

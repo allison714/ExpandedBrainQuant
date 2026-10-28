@@ -1,9 +1,13 @@
-# Keep line endings as written: the .py files are LF, the .bat files must stay CRLF.
-* text=auto
-*.py text eol=lf
-*.md text eol=lf
-*.txt text eol=lf
-*.ini text eol=lf
-*.json text eol=lf
+# Text files are stored with LF; checked out as-is. Windows launchers keep CRLF so cmd.exe reads them cleanly.
+* text=auto eol=lf
 *.bat text eol=crlf
+*.ini text eol=crlf
+*.csv text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.html text eol=lf
 *.xlsx binary
+*.png binary
+*.jpg binary
+*.pdf binary
+*.npz binary

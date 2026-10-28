@@ -558,7 +558,7 @@ def server_copy(base, samples, password=None):
             print(f"   {n}/{len(samples)} samples packed")
     data = json.dumps(carried, ensure_ascii=False, default=str).replace("</", "<\\/")
     title = GALLERY_TITLE + " (server copy)"
-    page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(f"{dt.datetime.now():%Y-%m-%d %H:%M}"))
+    page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
     page = page.replace("__TITLE__", html.escape(title)).replace(
         "</body>", SERVER_EXTRA.replace("__FULL__", html.escape(str(base / GALLERY_NAME)).replace("\\", "\\\\")))
     out = Path(core.DEFAULT_OUT) / GALLERY_NAME
@@ -699,7 +699,7 @@ def main():
     if not samples:
         sys.exit("No images found. Run Log_Screenshots.bat first.")
     data = json.dumps(samples, ensure_ascii=False, default=str).replace("</", "<\\/")
-    page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(f"{dt.datetime.now():%Y-%m-%d %H:%M}"))
+    page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
     page = page.replace("__TITLE__", html.escape(GALLERY_TITLE))
     out = base / GALLERY_NAME
     out.write_text(page, encoding="utf-8")

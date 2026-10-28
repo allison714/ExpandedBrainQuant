@@ -994,8 +994,10 @@ def write_log(path, rows, summary):
                   pr1=PEAK_RATIO[1], ab=AB_SIGMAS, top=TOP_N, rank=100 * PSD_RANK, minacc=MIN_ACCEPTED,
                   minpos=MIN_FOR_EXF, spotpx=SPOT_MIN_PX, onx=ON_SYNAPSE_X, line=LINE_PX, minfov=MIN_PER_FOV, small=SPOT_SMALLEST, gapbelow=GAP_BELOW, gap0=GAP_NM[0],
                   gap1=GAP_NM[1], seg=SEGMENT_NM, boots=BOOTSTRAPS, perms=structure.PERMUTATIONS, face=structure.FACE_FRACTION, rougher=ROUGHER_BY, t2=TYPE2_BRIGHTER_BY)
-    for r, line in enumerate(METHOD + [""] + structure.METHOD, start=1):
-        ws.cell(r, 1, line.format(**values)).font = Font(
+    import provenance
+    produced = "Produced by " + provenance.stamp(Path(__file__), Path(__file__).with_name("synapse_structure.py"))
+    for r, line in enumerate([METHOD[0], produced] + METHOD[1:] + [""] + structure.METHOD, start=1):
+        ws.cell(r, 1, line.format(**values) if line is not produced else line).font = Font(
             bold=(r == 1 or line in ("Caveats", "Antibody labelling (provisional)", "Resolution") or line.startswith(("Synapse classes", "Structure (provisional"))))
     wb.save(path)
 

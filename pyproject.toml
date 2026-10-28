@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ebq"
 version = "0.1.0"
-description = "3D analysis of pan-expansion-microscopy volumes: synapses, nuclei, expansion factor, antibody organisation"
+description = "pan-ExM Gallery: browse, review and quantify pan-expansion microscopy volumes (gallery, synapses, expansion factor, antibody labelling, 3D analysis)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
