@@ -76,7 +76,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     <button class="toggle" id="fAb" aria-pressed="false">Antibody-positive</button>
     <button class="toggle" id="fIn" aria-pressed="false">ExF 16 to 24</button>
     <select id="order" aria-label="Order">
-      <option value="n">In log order</option><option value="score">Best examples first</option>
+      <option value="n">Newest dataset first</option><option value="score">Best examples first</option>
       <option value="exf">Lowest ExF first</option><option value="exfd">Highest ExF first</option>
     </select>
   </div>
@@ -147,7 +147,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     if (order === "score") rows.sort((a, b) => (b.score || 0) - (a.score || 0));
     else if (order === "exf") rows.sort((a, b) => (a.exf || 99) - (b.exf || 99));
     else if (order === "exfd") rows.sort((a, b) => (b.exf || 0) - (a.exf || 0));
-    else rows.sort((a, b) => a.s.localeCompare(b.s) || a.n - b.n);
+    else rows.sort((a, b) => (b.d || "").localeCompare(a.d || "") || a.s.localeCompare(b.s) || a.n - b.n);   // newest dataset first, then the log's order
     state.filtered = rows; state.i = 0;
     if (keepIndex && cur) { const j = rows.findIndex(r => r.k === cur.k); if (j >= 0) state.i = j; }
     remember(); render();
@@ -156,7 +156,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   function fillSamples() {
     const sel = $("sample"), prev = sel.value; sel.innerHTML = "";
     const all = counts(); sel.add(new Option(`All samples (${all.done}/${all.total})`, "All samples"));
-    for (const s of META.samples) { const c = counts(s); sel.add(new Option(`${s} (${c.done}/${c.total})`, s)); }
+    for (const s of META.samples) { const c = counts(s); const d = (ROWS.find(r => r.s === s) || {}).d; sel.add(new Option(`${d ? d + "  " : ""}${s} (${c.done}/${c.total})`, s)); }
     sel.value = prev && [...sel.options].some(o => o.value === prev) ? prev : "All samples";
   }
   function ioText() {

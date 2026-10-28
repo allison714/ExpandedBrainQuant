@@ -81,6 +81,39 @@ def rows_from_log():
     return out
 
 
+def acquisition_dates(names):
+    """{sample: 'YYYY-MM-DD'} from the image list's Date Acquired, else from the YYMMDD or YYYYMMDD
+    the name starts with (the lab's naming), else ''. Newest first is the review order."""
+    import datetime as dt
+    import re
+
+    dates = {}
+    try:
+        ws = load_workbook(core.DEFAULT_LIST, read_only=True)["Images"]
+        heads = None
+        for line in ws.iter_rows(values_only=True):
+            if heads is None:
+                if line and "Image Name" in line:
+                    heads = list(line)
+                continue
+            row = dict(zip(heads, line))
+            d = row.get("Date Acquired")
+            if row.get("Image Name") and hasattr(d, "strftime"):
+                dates[row["Image Name"]] = d.strftime("%Y-%m-%d")
+    except Exception as e:
+        print(f"(image list not read for dates: {e})")
+    for name in names:
+        if name in dates:
+            continue
+        m = re.match(r"(\d{8}|\d{6})(?!\d)", name)
+        if m:
+            try:
+                dates[name] = dt.datetime.strptime(m.group(1), "%Y%m%d" if len(m.group(1)) == 8 else "%y%m%d").strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+    return dates
+
+
 def with_manifest(rows):
     """Mouse, genotype and notes from datasets.csv (written by review_import.py) onto each row of that dataset."""
     import csv
@@ -99,7 +132,12 @@ def with_manifest(rows):
 
 
 def build(rows, img_base, png_base):
-    samples = sorted({r["s"] for r in rows})
+    dates = acquisition_dates({r["s"] for r in rows})
+    for r in rows:
+        r["d"] = dates.get(r["s"], "")
+    # newest dataset first; within a dataset the log's order
+    rows.sort(key=lambda r: (r["d"] == "", r["d"] and "".join(chr(0x10FFFF - ord(c)) for c in r["d"]), r["s"].lower(), r["n"]))
+    samples = sorted({r["s"] for r in rows}, key=lambda s: (dates.get(s, "") == "", "".join(chr(0x10FFFF - ord(c)) for c in dates.get(s, "")), s.lower()))
     meta = {"built": f"{dt.datetime.now():%Y-%m-%d %H:%M}", "n": len(rows), "samples": samples,
             "img_base": img_base, "png_base": png_base, "ng_prefix": NG_PREFIX}
     data = json.dumps({"meta": meta, "rows": rows}, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")

@@ -109,6 +109,25 @@ def read_metadata(image_list=None, shots=None):
 SYNAPSE_LINKS = {}   # (sample, synapse number) -> Neuroglancer link, from the Synapse Log; filled by collect()
 
 
+REVIEWED = {}   # sample -> synapses accepted or rejected by a person; filled by collect()
+
+
+def read_reviewed(folder):
+    """{sample: number of logged synapses with an Accept decision} from the Synapse Log."""
+    counts = {}
+    try:
+        ws = load_workbook(folder / "Synapse Log.xlsx", read_only=True)["Synapses"]
+        lines = ws.iter_rows(min_row=3, values_only=True)
+        heads = list(next(lines))
+        at = {h: heads.index(h) for h in ("Sample", "Accept")}
+        for line in lines:
+            if line[at["Sample"]] and line[at["Accept"]]:
+                counts[line[at["Sample"]]] = counts.get(line[at["Sample"]], 0) + 1
+    except Exception as e:
+        print(f"(review counts not read: {e})")
+    return counts
+
+
 def read_synapse_links(folder):
     """The Neuroglancer link of each logged synapse, as the Synapse Log has it. The log is
     written in the same run as the pictures, so a number means the same synapse in both."""
@@ -246,6 +265,7 @@ def collect(base, year=None, image_list=None, synapse_folder=None, root=""):
     measured, synapse_folder = read_synapse_summary(base, synapse_folder)
     checked = read_channels(base)
     SYNAPSE_LINKS.update(read_synapse_links(synapse_folder))
+    REVIEWED.update(read_reviewed(synapse_folder))
     samples = []
     folders = sorted((d for d in base.iterdir() if d.is_dir() and not d.name.startswith("_")
                       and not any(word in d.name.lower() for word in HIDDEN)),
@@ -280,6 +300,14 @@ def collect(base, year=None, image_list=None, synapse_folder=None, root=""):
         m = meta.get(name, {})
         ratings = [p["rating"] for p in pictures if isinstance(p["rating"], (int, float))]
         date = m.get("Date Acquired")
+        voxel = [v.strip() for v in str(m.get("Voxel X, Y, Z (µm)") or "").split(",")]
+        planes = re.match(r"(\d+) × (\d+) × (\d+)", str(m.get("Size X × Y × Z") or ""))
+        nz = int(planes.group(3)) if planes else None
+        try:
+            xy_um, z_um = float(voxel[0]), (float(voxel[2]) if len(voxel) == 3 and nz and nz > 2 else None)
+        except ValueError:
+            xy_um, z_um = None, None
+        setup = " · ".join(x for x in ((m.get("Microscope") or "").strip(), (m.get("Objective") or "").strip()) if x) or "setup not known"
         if root:   # another year: every address made absolute, so the page can sit anywhere
             pictures = [dict(p, file=root + p["file"], thumb=root + p["thumb"]) for p in pictures]
             card = dict(card, thumb=root + card["thumb"])
@@ -290,6 +318,9 @@ def collect(base, year=None, image_list=None, synapse_folder=None, root=""):
             "type": next((r.get("Type") for r in logged.get(name, []) if r.get("Type")), ""),
             "date": date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else (str(date) if date else ""),
             "channels": m.get("Channels (laser)") or "", "microscope": m.get("Microscope") or "",
+            "setup": setup, "xy_um": xy_um, "z_um": z_um, "nz": nz,
+            "volume": bool(nz and nz > 2 and z_um is not None and z_um <= 2.0),   # a z-stack fine enough for 3D work
+            "reviewed": REVIEWED.get(name, 0),
             "objective": m.get("Objective") or "", "size": m.get("Size X × Y × Z") or "",
             "extent": m.get("Extent X × Y × Z (µm)") or "", "density": m.get("AB Spots / 1000 µm²"),
             "density_text": m.get("AB Density by Channel") or "", "link_status": m.get("Link Status") or "",
@@ -360,6 +391,8 @@ a.pic { color:var(--accent); text-decoration:none; } a.pic:hover { text-decorati
 #tabs button.on { background:var(--panel); color:var(--text); border-color:var(--accent); }
 #tabs button span { color:var(--dim); margin-left:5px; font-size:12px; }
 .group.yr { color:var(--text); font-size:14px; }
+#metrics { display:flex; flex-wrap:wrap; gap:8px 22px; padding:10px 18px 0; color:var(--dim); font-size:12.5px; }
+#metrics b { color:var(--text); font-weight:600; } #metrics .k { color:var(--accent); }
 .group { grid-column:1 / -1; margin:8px 0 -4px; font-size:13px; font-weight:600; color:var(--dim); border-bottom:1px solid var(--line); padding-bottom:5px; }
 #detail { position:fixed; inset:0; background:rgba(0,0,0,.82); display:none; z-index:10; overflow:auto; }
 #detail.on { display:block; }
@@ -381,6 +414,7 @@ h3 { margin:26px 0 10px; font-size:14px; font-weight:600; color:var(--dim); bord
 <header>
   <h1>__TITLE__</h1>
   <select id="year" title="Which year's images to show"></select>
+  <select id="setup" title="Microscope and objective"><option value="">All setups</option></select>
   <input id="q" type="search" placeholder="Search name, channels, notes…" autofocus>
   <select id="type"><option value="">All types</option></select>
   <select id="objective"><option value="">All objectives</option></select>
@@ -397,6 +431,7 @@ h3 { margin:26px 0 10px; font-size:14px; font-weight:600; color:var(--dim); bord
   <span id="count"></span>
 </header>
 <nav id="tabs"></nav>
+<div id="metrics"></div>
 <div id="grid"></div>
 <div id="detail"><div id="box"></div></div>
 <script>
@@ -419,6 +454,22 @@ $("year").value = YEAR;
 $("year").hidden = YEARS.length < 2;
 $("year").addEventListener("input", () => { YEAR = $("year").value; address(); tabs(); draw(); });
 const inYear = s => YEAR === "all" || (YEAR === "before" ? s.year !== NEWEST : s.year === YEAR);
+// Setup: microscope and objective. The options count the samples of the chosen year.
+[...new Set(DATA.map(s => s.setup).filter(Boolean))].sort().forEach(k => $("setup").insertAdjacentHTML("beforeend", `<option value="${esc(k)}">${esc(k)}</option>`));
+const inSetup = s => !$("setup").value || s.setup === $("setup").value;
+const median = a => { const v = a.filter(x => x != null && !isNaN(x)).sort((x, y) => x - y); return v.length ? v[(v.length - 1) >> 1] : null; };
+const span = (a, digits) => { const v = a.filter(x => x != null).sort((x, y) => x - y); return !v.length ? "" : v[0] === v[v.length - 1] ? v[0].toFixed(digits) : v[0].toFixed(digits) + " to " + v[v.length - 1].toFixed(digits); };
+function metrics(rows) {
+  const vol = rows.filter(s => s.volume), setups = new Set(rows.map(s => s.setup)).size;
+  const exf = median(rows.map(s => s.exf_sure ? s.exf : null)), res = median(rows.map(s => s.res));
+  const items = [["", $("setup").value || (setups === 1 && rows.length ? rows[0].setup : `${setups} setups`)],
+    ["samples", rows.length], ["volumes (z step ≤ 2 µm)", vol.length],
+    ["pixel (µm)", span(rows.map(s => s.xy_um), 3)], ["z step of volumes (µm)", span(vol.map(s => s.z_um), 2)],
+    ["median ExF", exf == null ? "" : exf.toFixed(1)], ["median resolution (nm)", res == null ? "" : res.toFixed(0)],
+    ["synapses logged", rows.reduce((n, s) => n + (s.synapses_found ? +s.synapses_found : 0), 0) || ""],
+    ["reviewed", rows.reduce((n, s) => n + (s.reviewed || 0), 0) || ""]];
+  $("metrics").innerHTML = items.filter(([k, v]) => v !== "" && v != null).map(([k, v]) => k ? `<span>${esc(k)} <b>${esc(v)}</b></span>` : `<span class="k">${esc(v)}</span>`).join("");
+}
 const address = () => { const q = new URLSearchParams(); if (YEAR !== NEWEST) q.set("year", YEAR); if (TAB) q.set("tab", TAB);
   history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "")); };
 // Tabs: how many antibody channels show signal. The tab is kept in the address (?tab=double) so it can be shared.
@@ -443,7 +494,7 @@ let shown = [];
 function draw() {
   const q = $("q").value.trim().toLowerCase(), type = $("type").value, sort = $("sort").value, rated = $("rated").checked;
   const measured = $("measured").checked, objective = $("objective").value, genotype = $("genotype").value;
-  shown = DATA.filter(s => inYear(s) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
+  shown = DATA.filter(s => inYear(s) && inSetup(s) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
     (!type || s.type === type) && (!rated || s.rating != null) && (!measured || s.exf != null) &&
     (!q || q.split(/\s+/).every(w => (s.name + " " + s.channels + " " + s.notes + " " + s.type + " " + s.date + " " + s.antibody + " " + (s.combo || "") + " " + (s.genotype || "") + " " + (s.chips || []).map(c => c.text).join(" ")).toLowerCase().includes(w))));
   const by = { name:(a,b)=>a.name.localeCompare(b.name), date:(a,b)=>b.date.localeCompare(a.date),
@@ -459,6 +510,7 @@ function draw() {
     (grouped() && (i === 0 || shown[i - 1].combo !== s.combo || shown[i - 1].year !== s.year)
       ? `<div class="group">${esc(s.combo || "combination not known")} · ${shown.filter(x => x.combo === s.combo && x.year === s.year).length}</div>` : "");
   $("count").textContent = `${shown.length} of ${DATA.filter(inYear).length} samples · built ${BUILT}`;
+  metrics(shown);
   $("grid").innerHTML = shown.length ? shown.map((s,i) => `${heading(s, i)}
     <div class="card" tabindex="0" data-i="${i}">
       <img loading="lazy" src="${s.card}" alt="">
@@ -483,6 +535,7 @@ const fig = p => `<figure><a href="${p.ng ? esc(p.ng) : p.file}" target="_blank"
 function open_(i) {
   const s = shown[i]; if (!s) return;
   const rows = [["Date", s.date],["Type", s.type],["Channels", s.channels],["Microscope", s.microscope],["Objective", s.objective],
+    ["Sampling", s.xy_um == null ? "" : `${s.xy_um} µm pixels` + (s.nz > 2 ? `, ${s.nz} planes ${s.z_um} µm apart` + (s.volume ? " (volume)" : " (too coarse for 3D)") : ", single plane")],
     ["Size (voxels)", s.size],["Extent (µm)", s.extent],["Antibody density", s.density_text],["Link status", s.link_status],["Notes", s.notes],
     ["Expansion factor", s.exf == null ? "" : `ExF ${s.exf_sure ? "=" : "≈"} ${s.exf} ± ${s.exf_sd}${s.exf_ci ? `, 95% CI ${s.exf_ci}` : ""}  (DP–PSD peak to peak ÷ 81.9 nm; ${s.exf_basis}; ` +
       `${s.exf_fields ? s.exf_fields + " fields, " : ""}${s.exf_n} synapses; Gaussian fit: ExF = ${s.exf_fit})` +
@@ -535,7 +588,7 @@ document.addEventListener("keydown", e => {
   const i = +$("detail").dataset.i;
   if (e.key === "Escape") close_(); else if (e.key === "ArrowRight") open_(Math.min(shown.length - 1, i + 1)); else if (e.key === "ArrowLeft") open_(Math.max(0, i - 1));
 });
-["q","type","objective","genotype","sort","rated","measured"].forEach(id => $(id).addEventListener("input", draw));
+["q","type","objective","genotype","sort","rated","measured","setup"].forEach(id => $(id).addEventListener("input", draw));
 tabs();
 draw();
 if (location.hash) {   // opened with a sample's name after '#': go straight to it
