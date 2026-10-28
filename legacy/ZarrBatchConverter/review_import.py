@@ -4,7 +4,7 @@ Input: the CSV exported by the page. Columns: key, sample, synapse_id, n, accept
 2026-10-28 also cls (the reviewer's class call), mouse and genotype (on rows whose key ends in
 '__SAMPLE', which carry the per-dataset notes).
 
-  * Synapse rows: Accept (Y / N; '?' clears it), Notes and 'Reviewed Class' are written into the log,
+  * Synapse rows: Accept (Y / N; 'u' or the older '?' = unsure, clears it), Notes and 'Reviewed Class' are written into the log,
     matched by key '<sample>__<synapse id>'. The 'Reviewed Class' column is created after Notes if the
     log does not have it yet; synapse_exf.py preserves it across re-runs like Accept and Notes.
   * Sample rows: mouse, genotype and notes go into 'datasets.csv' beside the log, the per-dataset

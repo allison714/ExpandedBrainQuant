@@ -665,12 +665,23 @@ def describe_microscope(ext, ome_microscope, original):
     return f"{base} ({', '.join(detail)})"
 
 
-def describe_objective(ome_objective, original):
+# The Dragonfly's objectives (from a Fusion metadata file, 2026-10-28): what a magnification in a
+# channel or file name means when the image itself does not say (Imaris files of 2024 and earlier).
+DRAGONFLY_OBJECTIVES = {"60": "60x / NA 1.2", "40": "40x / NA 1.15", "20": "20x / NA 0.75"}
+
+
+def describe_objective(ome_objective, original, hints=()):
+    """The objective as the file states it; else, for a Dragonfly image, as a '60x' in a channel
+    name or the file name implies (hints), which the user confirmed is always the same lens."""
     if ome_objective:
         return ome_objective
     mag, na = original.get("LensPower"), original.get("NumericalAperture")
     if mag:
         return f"{mag}x" + (f" / NA {na}" if na else "")
+    for hint in hints:
+        m = re.search(r"(?<![0-9])(60|40|20)[xX](?![0-9])", str(hint or ""))
+        if m:
+            return DRAGONFLY_OBJECTIVES[m.group(1)]
     return ""
 
 
@@ -2026,7 +2037,8 @@ def build_rows(zarr_dir, out_root, src, status, make_links, refresh):
                 "Image Name": name,
                 "Date Acquired": date.date() if date else None,
                 "Microscope": describe_microscope(ext, ome_microscope, original),
-                "Objective": describe_objective(ome_objective, original),
+                "Objective": describe_objective(ome_objective, original,
+                                                [c.get("Name", "") for c in img["channels"]] + [stem] if ext == ".ims" else ()),
                 "Size X × Y × Z": f"{shape.get('x', 1)} × {shape.get('y', 1)} × {shape.get('z', 1)}",
                 "C": shape.get("c", 1), "T": shape.get("t", 1),
                 "Voxel X, Y, Z (µm)": voxel,

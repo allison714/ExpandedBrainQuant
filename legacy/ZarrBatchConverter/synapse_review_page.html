@@ -34,7 +34,7 @@ main { flex:1 1 auto; padding:12px 16px 130px; max-width:1100px; width:100%; mar
 .verdict { position:absolute; inset:0; display:grid; place-items:center; font-size:56px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .12s; }
 .verdict.show { opacity:.85; }
 .stamp { position:absolute; top:10px; left:10px; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:6px; background:var(--panel); border:1px solid var(--line); color:var(--dim); }
-.stamp[data-v="Y"] { color:var(--yes); border-color:var(--yes); } .stamp[data-v="N"] { color:var(--no); border-color:var(--no); } .stamp[data-v="?"] { color:var(--unsure); border-color:var(--unsure); }
+.stamp[data-v="Y"] { color:var(--yes); border-color:var(--yes); } .stamp[data-v="N"] { color:var(--no); border-color:var(--no); } .stamp[data-v="u"] { color:var(--unsure); border-color:var(--unsure); }
 .title { display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline; margin:10px 0 6px; }
 .title .name { font-weight:700; word-break:break-all; } .title .id { color:var(--dim); font-size:13px; }
 .chips { display:flex; flex-wrap:wrap; gap:6px; }
@@ -107,12 +107,12 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     <button id="copy">Copy CSV</button>
     <label for="importFile">Import CSV</label><input type="file" id="importFile" accept=".csv,text/csv">
   </div>
-  <p class="hint">Decisions are kept in this browser only. Export the CSV when you stop, and import it on the PC with <span class="num">review_import.py</span>; rebuilding this page then carries the decisions into it for every device. Built __BUILT__.</p>
+  <p class="hint">Decisions are kept in this browser only. Export the CSV when you stop, and import it on the PC with <span class="num">review_import.py</span>; rebuilding this page then carries the decisions into it for every device. Updated __BUILT__.</p>
 </main>
 <footer>
   <button id="back" disabled>Back<small>previous</small></button>
   <button id="no" class="no">Reject<small>N</small></button>
-  <button id="unsure">Unsure<small>?</small></button>
+  <button id="unsure">Unsure<small>U</small></button>
   <button id="yes" class="yes">Accept<small>Y</small></button>
 </footer>
 <div class="status" id="status"></div>
@@ -125,7 +125,8 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const STORE = "synapse-review-decisions", PREFS = "synapse-review-prefs";
   const state = { local: {}, samples: {}, filtered: [], i: 0, history: [], exportedAt: null };
 
-  const load = () => { try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); state.local = o.d || {}; state.samples = o.s || {}; state.exportedAt = o.exportedAt || null; } catch (e) { state.local = {}; state.samples = {}; } };
+  const load = () => { try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); state.local = o.d || {}; state.samples = o.s || {}; state.exportedAt = o.exportedAt || null; } catch (e) { state.local = {}; state.samples = {}; }
+    for (const d of Object.values(state.local)) if (d.accept === "?") d.accept = "u"; };   // the mark used before 2026-10-28
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ d: state.local, s: state.samples, exportedAt: state.exportedAt })); } catch (e) { toast("Could not save in this browser"); } };
   const remember = () => { try { localStorage.setItem(PREFS, JSON.stringify({ sample: $("sample").value, order: $("order").value,
     unrev: $("fUnrev").getAttribute("aria-pressed"), ab: $("fAb").getAttribute("aria-pressed"), inr: $("fIn").getAttribute("aria-pressed"),
@@ -220,7 +221,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   }
   function csv() {
     const rows = [["key", "sample", "synapse_id", "n", "accept", "notes", "at", "cls", "mouse", "genotype"]];
-    for (const [k, d] of Object.entries(state.local)) rows.push([k, d.sample, d.id, d.n, d.accept || "?", d.notes || "", d.at || "", d.cls || "", "", ""]);
+    for (const [k, d] of Object.entries(state.local)) rows.push([k, d.sample, d.id, d.n, d.accept || "u", d.notes || "", d.at || "", d.cls || "", "", ""]);
     for (const [s, m] of Object.entries(state.samples)) rows.push([s + "__SAMPLE", s, "", 0, "", m.notes || "", m.at || "", "", m.mouse || "", m.geno || ""]);
     return rows.map(x => x.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\r\n") + "\r\n";
   }
@@ -245,7 +246,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
         const have = state.local[k];
         if (have && have.at && at && have.at >= at) continue;
         const acc = (c[ix("accept")] || "").toUpperCase(); const [s, id] = k.split("__");
-        state.local[k] = { accept: ["Y", "N", "?"].includes(acc) ? acc : null, notes: ix("notes") >= 0 ? c[ix("notes")] : "", cls: ix("cls") >= 0 ? c[ix("cls")] : "", at: at || new Date().toISOString(), sample: s, id, n: ix("n") >= 0 ? +c[ix("n")] : undefined }; added++; }
+        state.local[k] = { accept: ["Y", "N", "u"].includes(acc) ? acc : null, notes: ix("notes") >= 0 ? c[ix("notes")] : "", cls: ix("cls") >= 0 ? c[ix("cls")] : "", at: at || new Date().toISOString(), sample: s, id, n: ix("n") >= 0 ? +c[ix("n")] : undefined }; added++; }
       save(); fillSamples(); applyFilter(true); toast(`Imported ${added} decisions`);
     }; rd.readAsText(file);
   }
@@ -256,12 +257,12 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   document.addEventListener("keydown", e => {
     if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") { if (e.key === "Enter" && e.target.id === "note") saveNote(); return; }
     const k = e.key.toLowerCase();
-    if (k === "y") decide("Y"); else if (k === "n") decide("N"); else if (k === "u" || k === "?") decide("?");
+    if (k === "y") decide("Y"); else if (k === "n") decide("N"); else if (k === "u" || k === "?") decide("u");
     else if (k === "backspace" || k === "arrowleft") { e.preventDefault(); back(); }
     else if (k === "arrowright" || k === " ") { e.preventDefault(); state.i = Math.min(state.i + 1, state.filtered.length - 1); render(); }
     else if (k === "z") setZoom(!$("stage").classList.contains("zoom"));
   });
-  $("yes").onclick = () => decide("Y"); $("no").onclick = () => decide("N"); $("unsure").onclick = () => decide("?"); $("back").onclick = back;
+  $("yes").onclick = () => decide("Y"); $("no").onclick = () => decide("N"); $("unsure").onclick = () => decide("u"); $("back").onclick = back;
   $("saveNote").onclick = saveNote; $("saveSample").onclick = saveSample; $("export").onclick = exportCsv; $("copy").onclick = copyCsv;
   $("importFile").onchange = e => { if (e.target.files[0]) importCsv(e.target.files[0]); e.target.value = ""; };
   $("zoomLink").onclick = e => { e.preventDefault(); setZoom(!$("stage").classList.contains("zoom")); };

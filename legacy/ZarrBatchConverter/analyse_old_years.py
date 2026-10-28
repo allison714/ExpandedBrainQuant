@@ -40,6 +40,7 @@ for year in YEARS:
         continue
     # prompts: which samples (Enter = all); standard screenshots (Enter = yes); rating (Enter = no);
     # and, when some already have pictures, add only the missing ones (Enter = A)
+    run(f"{year}: image list (objectives of Imaris files from their channel names)", ["convert_to_zarr.py", "--list-only"], year)
     run(f"{year}: screenshots", ["roi_log.py", "--batch"], year, answers="\n\n\n\n\n")
     run(f"{year}: synapses", ["synapse_exf.py", "--synaptic", "auto"], year)
 run("gallery (2026 + older years), PC copy and server mirror", ["make_gallery.py", "--mirror"])

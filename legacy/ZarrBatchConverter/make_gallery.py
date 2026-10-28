@@ -420,14 +420,15 @@ h3 { margin:26px 0 10px; font-size:14px; font-weight:600; color:var(--dim); bord
   <select id="objective"><option value="">All objectives</option></select>
   <select id="genotype"><option value="">All genotypes</option></select>
   <select id="sort">
-    <option value="name">Sort: name</option><option value="date">Sort: date, newest first</option>
-    <option value="density">Sort: antibody density</option><option value="rating">Sort: rating</option>
+    <option value="density" selected>Sort: antibody density, highest first</option>
+    <option value="name">Sort: name</option><option value="date">Sort: date, newest first</option><option value="rating">Sort: rating</option>
     <option value="exf">Sort: expansion factor</option><option value="res">Sort: resolution, finest first</option>
     <option value="enrich">Sort: antibody on synapses (enrichment)</option>
     <option value="labelled">Sort: synapses labelled (%)</option>
   </select>
   <label><input id="rated" type="checkbox"> rated only</label>
   <label><input id="measured" type="checkbox"> with expansion factor only</label>
+  <label title="Single tiles and flat montages (one or two planes). Off: only z-stacks are shown. On: they are listed after the stacks."><input id="flat" type="checkbox"> single-plane images</label>
   <span id="count"></span>
 </header>
 <nav id="tabs"></nav>
@@ -436,9 +437,23 @@ h3 { margin:26px 0 10px; font-size:14px; font-weight:600; color:var(--dim); bord
 <div id="detail"><div id="box"></div></div>
 <script>
 const DATA = __DATA__;
-const BUILT = "__BUILT__";
+const BUILT = "__BUILT__", UPDATED = "__UPDATED__";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// What each badge, tab and metric means (shown when the mouse rests on it)
+const HELP = {
+  rating: "Your rating of this sample's QC pictures (1 to 5), from the screenshot log.",
+  density: "Antibody density: puncta per 1000 µm² in the antibody channel on the sample's middle plane, as counted when the image was listed.",
+  exf: "Expansion factor.  ExF = d / 81.9 nm\n  d = peak-to-peak distance between the dense projections (DP) and the postsynaptic density (PSD), read on a 2-pixel-thick line across each synapse in the pan image (µm as imaged, converted to nm)\n  81.9 nm = the native DP–PSD distance (M'Saad, Cairns et al.)\nShown: the mean over the sample's fields of view.  '=' when the synapses are confirmed by an antibody or by review; '≈' when only pan-only double peaks were available, which reads high.",
+  res: "Resolution: full width at half maximum of the smallest antibody puncta, divided by ExF (lateral; an upper bound on the effective resolution in the tissue).",
+  enrich: "Antibody enrichment: the share of antibody puncta that sit on a found synapse, divided by the share expected if the puncta were placed at random. 1× = no enrichment.",
+  synapses: "Synapses logged for this sample (up to 150, best examples first), each with a card and an ExF reading.",
+  link: "The Neuroglancer link could not be checked when the image list was built.",
+  tab_pan: "Samples whose only usable channel is the pan stain.", tab_single: "One antibody channel shows signal.", tab_double: "Two antibody channels show signal.", tab_triple: "Three antibody channels show signal.",
+  m_samples: "Samples shown with the current filters.", m_volumes: "Z-stacks whose planes are 2 µm apart or closer: usable for 3D work.",
+  m_pixel: "Pixel size in the image as acquired (before dividing by ExF).", m_zstep: "Distance between planes in the volumes shown.",
+  m_exf: "Median expansion factor over the samples shown, confirmed readings only.", m_res: "Median of the per-sample resolution estimates.",
+  m_logged: "Synapse profiles found by the detector across the samples shown.", m_reviewed: "Logged synapses accepted or rejected by a person on the review page." };
 [...new Set(DATA.map(s => s.type).filter(Boolean))].sort().forEach(t => $("type").insertAdjacentHTML("beforeend", `<option>${esc(t)}</option>`));
 [...new Set(DATA.map(s => s.objective).filter(Boolean))].sort().forEach(t => $("objective").insertAdjacentHTML("beforeend", `<option>${esc(t)}</option>`));
 [...new Set(DATA.map(s => s.genotype).filter(Boolean))].sort().forEach(t => $("genotype").insertAdjacentHTML("beforeend", `<option>${esc(t)}</option>`));
@@ -462,13 +477,13 @@ const span = (a, digits) => { const v = a.filter(x => x != null).sort((x, y) => 
 function metrics(rows) {
   const vol = rows.filter(s => s.volume), setups = new Set(rows.map(s => s.setup)).size;
   const exf = median(rows.map(s => s.exf_sure ? s.exf : null)), res = median(rows.map(s => s.res));
-  const items = [["", $("setup").value || (setups === 1 && rows.length ? rows[0].setup : `${setups} setups`)],
-    ["samples", rows.length], ["volumes (z step ≤ 2 µm)", vol.length],
-    ["pixel (µm)", span(rows.map(s => s.xy_um), 3)], ["z step of volumes (µm)", span(vol.map(s => s.z_um), 2)],
-    ["median ExF", exf == null ? "" : exf.toFixed(1)], ["median resolution (nm)", res == null ? "" : res.toFixed(0)],
-    ["synapses logged", rows.reduce((n, s) => n + (s.synapses_found ? +s.synapses_found : 0), 0) || ""],
-    ["reviewed", rows.reduce((n, s) => n + (s.reviewed || 0), 0) || ""]];
-  $("metrics").innerHTML = items.filter(([k, v]) => v !== "" && v != null).map(([k, v]) => k ? `<span>${esc(k)} <b>${esc(v)}</b></span>` : `<span class="k">${esc(v)}</span>`).join("");
+  const items = [["", $("setup").value || (setups === 1 && rows.length ? rows[0].setup : `${setups} setups`), "Microscope and objective of the samples shown."],
+    ["samples", rows.length, HELP.m_samples], ["volumes (z step ≤ 2 µm)", vol.length, HELP.m_volumes],
+    ["pixel (µm)", span(rows.map(s => s.xy_um), 3), HELP.m_pixel], ["z step of volumes (µm)", span(vol.map(s => s.z_um), 2), HELP.m_zstep],
+    ["median ExF", exf == null ? "" : exf.toFixed(1), HELP.m_exf], ["median resolution (nm)", res == null ? "" : res.toFixed(0), HELP.m_res],
+    ["synapses logged", rows.reduce((n, s) => n + (s.synapses_found ? +s.synapses_found : 0), 0) || "", HELP.m_logged],
+    ["reviewed", rows.reduce((n, s) => n + (s.reviewed || 0), 0) || "", HELP.m_reviewed]];
+  $("metrics").innerHTML = items.filter(([k, v]) => v !== "" && v != null).map(([k, v, h]) => k ? `<span title="${esc(h)}">${esc(k)} <b>${esc(v)}</b></span>` : `<span class="k" title="${esc(h)}">${esc(v)}</span>`).join("");
 }
 const address = () => { const q = new URLSearchParams(); if (YEAR !== NEWEST) q.set("year", YEAR); if (TAB) q.set("tab", TAB);
   history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "")); };
@@ -478,8 +493,8 @@ let TAB = new URLSearchParams(location.search).get("tab") || "";
 if (!TABS.some(t => t[0] === TAB)) TAB = "";
 function tabs() {
   $("tabs").innerHTML = TABS.map(([key, text]) => {
-    const n = DATA.filter(s => inYear(s) && (!key || s.label_kind === key)).length;
-    return n || !key ? `<button data-tab="${key}" class="${key === TAB ? "on" : ""}">${text}<span>${n}</span></button>` : "";
+    const n = DATA.filter(s => inYear(s) && ($("flat").checked || s.nz > 2) && (!key || s.label_kind === key)).length;
+    return n || !key ? `<button data-tab="${key}" class="${key === TAB ? "on" : ""}" title="${esc(HELP["tab_" + key] || "Every sample of the chosen year.")}">${text}<span>${n}</span></button>` : "";
   }).join("");
 }
 $("tabs").addEventListener("click", e => {
@@ -494,7 +509,8 @@ let shown = [];
 function draw() {
   const q = $("q").value.trim().toLowerCase(), type = $("type").value, sort = $("sort").value, rated = $("rated").checked;
   const measured = $("measured").checked, objective = $("objective").value, genotype = $("genotype").value;
-  shown = DATA.filter(s => inYear(s) && inSetup(s) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
+  const flat = s => !(s.nz > 2), withFlat = $("flat").checked;
+  shown = DATA.filter(s => inYear(s) && inSetup(s) && (withFlat || !flat(s)) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
     (!type || s.type === type) && (!rated || s.rating != null) && (!measured || s.exf != null) &&
     (!q || q.split(/\s+/).every(w => (s.name + " " + s.channels + " " + s.notes + " " + s.type + " " + s.date + " " + s.antibody + " " + (s.combo || "") + " " + (s.genotype || "") + " " + (s.chips || []).map(c => c.text).join(" ")).toLowerCase().includes(w))));
   const by = { name:(a,b)=>a.name.localeCompare(b.name), date:(a,b)=>b.date.localeCompare(a.date),
@@ -503,13 +519,15 @@ function draw() {
                enrich:(a,b)=>(b.ab_enrich ?? -1)-(a.ab_enrich ?? -1), labelled:(a,b)=>(b.ab_labelled ?? -1)-(a.ab_labelled ?? -1) }[sort];
   shown.sort(by);
   if (grouped()) shown.sort((a, b) => (a.combo || "").localeCompare(b.combo || "") || a.name.localeCompare(b.name));   // by combination of antibodies
+  if (!grouped()) shown.sort((a, b) => flat(a) - flat(b));   // stable: z-stacks first, single-plane images after them
   const several = new Set(shown.map(s => s.year)).size > 1;
   if (several) shown.sort((a, b) => (b.year || "").localeCompare(a.year || ""));   // stable: the newest year first, each sorted as chosen
   const heading = (s, i) => (several && (i === 0 || shown[i - 1].year !== s.year)
       ? `<div class="group yr">${esc(s.year || "year not known")} · ${shown.filter(x => x.year === s.year).length}</div>` : "") +
     (grouped() && (i === 0 || shown[i - 1].combo !== s.combo || shown[i - 1].year !== s.year)
       ? `<div class="group">${esc(s.combo || "combination not known")} · ${shown.filter(x => x.combo === s.combo && x.year === s.year).length}</div>` : "");
-  $("count").textContent = `${shown.length} of ${DATA.filter(inYear).length} samples · built ${BUILT}`;
+  $("count").textContent = `${shown.length} of ${DATA.filter(inYear).length} samples · updated ${UPDATED}`;
+  $("count").title = BUILT;
   metrics(shown);
   $("grid").innerHTML = shown.length ? shown.map((s,i) => `${heading(s, i)}
     <div class="card" tabindex="0" data-i="${i}">
@@ -517,13 +535,13 @@ function draw() {
       <div class="t"><div class="name">${esc(s.name)}</div>
         <div class="sub">${esc(s.date)}${s.type ? " · " + esc(s.type) : ""} · ${s.pictures.length - (s.synapses ? s.synapses + 1 : 0)} images</div>
         <div class="chips">${chips(s)}</div>
-        ${s.rating != null ? `<span class="badge r">★ ${s.rating}</span>` : ""}
-        ${s.density != null ? `<span class="badge">${Number(s.density).toFixed(1)} spots / 1000 µm²</span>` : ""}
-        ${s.exf != null ? `<span class="badge x${s.exf_sure ? "" : " q"}" title="${esc(s.exf_basis)}">ExF ${s.exf_sure ? "=" : "≈"} ${Number(s.exf).toFixed(1)}</span>` : ""}
-        ${s.res != null ? `<span class="badge" title="width of the smallest antibody puncta ÷ ExF: an upper bound">≤ ${Number(s.res).toFixed(0)} nm</span>` : ""}
-        ${s.ab_enrich != null ? `<span class="badge" title="antibody puncta on synapses, × chance">AB ${Number(s.ab_enrich).toFixed(1)}× on synapses</span>` : ""}
-        ${s.synapses ? `<span class="badge">${s.synapses} synapses</span>` : ""}
-        ${s.link_status && s.link_status !== "OK" ? `<span class="badge w">link problem</span>` : ""}
+        ${s.rating != null ? `<span class="badge r" title="${esc(HELP.rating)}">★ ${s.rating}</span>` : ""}
+        ${s.density != null ? `<span class="badge" title="${esc(HELP.density)}">${Number(s.density).toFixed(1)} spots / 1000 µm²</span>` : ""}
+        ${s.exf != null ? `<span class="badge x${s.exf_sure ? "" : " q"}" title="${esc(HELP.exf + "\nThis sample: " + s.exf_basis)}">ExF ${s.exf_sure ? "=" : "≈"} ${Number(s.exf).toFixed(1)}</span>` : ""}
+        ${s.res != null ? `<span class="badge" title="${esc(HELP.res)}">≤ ${Number(s.res).toFixed(0)} nm</span>` : ""}
+        ${s.ab_enrich != null ? `<span class="badge" title="${esc(HELP.enrich)}">AB ${Number(s.ab_enrich).toFixed(1)}× on synapses</span>` : ""}
+        ${s.synapses ? `<span class="badge" title="${esc(HELP.synapses)}">${s.synapses} synapses</span>` : ""}
+        ${s.link_status && s.link_status !== "OK" ? `<span class="badge w" title="${esc(HELP.link)}">link problem</span>` : ""}
       </div></div>`).join("") : `<div class="empty">No samples match.</div>`;
 }
 const fig = p => `<figure><a href="${p.ng ? esc(p.ng) : p.file}" target="_blank" rel="noopener"
@@ -588,7 +606,7 @@ document.addEventListener("keydown", e => {
   const i = +$("detail").dataset.i;
   if (e.key === "Escape") close_(); else if (e.key === "ArrowRight") open_(Math.min(shown.length - 1, i + 1)); else if (e.key === "ArrowLeft") open_(Math.max(0, i - 1));
 });
-["q","type","objective","genotype","sort","rated","measured","setup"].forEach(id => $(id).addEventListener("input", draw));
+["q","type","objective","genotype","sort","rated","measured","setup","flat"].forEach(id => $(id).addEventListener("input", draw));
 tabs();
 draw();
 if (location.hash) {   // opened with a sample's name after '#': go straight to it
@@ -616,7 +634,7 @@ document.querySelector("header").insertAdjacentHTML("afterend", `<details id="se
   <b>On the server, one click away:</b> the full-size pictures (click a picture, or "image" under a synapse); "Open folder" and "Synapse images"
   open the sample's folders there, with the turning 3D nucleus GIFs, the Synapse Log workbook, the per-sample CSV files and the reports;
   "Open in Neuroglancer" and clicking a synapse open the image data. <a href="__MIRROR__" target="_blank" rel="noopener">The folders</a> are public; only this page needs the password.<br>
-  <b>Kept up to date by:</b> Make_Gallery_Protected.bat for this page, Make_Gallery.bat with --mirror for the folders; the build time is in the top bar.
+  <b>Kept up to date by:</b> Make_Gallery_Protected.bat for this page, Make_Gallery.bat with --mirror for the folders; the update time is in the top bar.
 </details>`);
 </script>
 </body>"""
@@ -672,7 +690,8 @@ def server_copy(base, samples, password=None, out=None):
     data = public_json(carried)
     title = GALLERY_TITLE + " (server copy)"
     page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
-    page = page.replace("__TITLE__", html.escape(title)).replace("</body>", SERVER_EXTRA.replace("__MIRROR__", html.escape(mirror_root)))
+    page = page.replace("__TITLE__", html.escape(title)).replace("__UPDATED__", f"{dt.datetime.now():%Y-%m-%d %H:%M}")
+    page = page.replace("</body>", SERVER_EXTRA.replace("__MIRROR__", html.escape(mirror_root)))
     out = out or Path(core.DEFAULT_OUT) / GALLERY_NAME
     out.write_text(lock(page, password, GALLERY_TITLE) if password else page, encoding="utf-8")
     return out, core.share_url_for(out) or ""      # no address when written somewhere the server does not publish (a test)
@@ -824,7 +843,7 @@ def main():
         sys.exit("No images found. Run Log_Screenshots.bat first.")
     data = public_json(samples)
     page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
-    page = page.replace("__TITLE__", html.escape(GALLERY_TITLE))
+    page = page.replace("__TITLE__", html.escape(GALLERY_TITLE)).replace("__UPDATED__", f"{dt.datetime.now():%Y-%m-%d %H:%M}")
     out = base / GALLERY_NAME
     out.write_text(page, encoding="utf-8")
     for old in OLD_NAMES:   # the page under a previous name would otherwise linger, out of date
