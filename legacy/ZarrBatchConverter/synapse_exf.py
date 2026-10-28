@@ -1263,6 +1263,7 @@ def add_links(text=""):
 
 
 def main():
+    global TOP_N
     p = argparse.ArgumentParser(description="Find synapses in the pan stain and measure the expansion factor (DP-PSD / 82 nm).")
     p.add_argument("text", nargs="?", help="go through the samples whose names contain this (omit to be asked)")
     p.add_argument("--synaptic", choices=("y", "n", "auto"),
@@ -1276,7 +1277,6 @@ def main():
     p.add_argument("--out", help="folder for the log and pictures, instead of the one in settings.ini")
     p.add_argument("--top", type=int, default=TOP_N, help=f"synapses pictured and logged per sample (default {TOP_N})")
     args = p.parse_args()
-    global TOP_N
     TOP_N = args.top
     return add_links(args.text) if args.links else run(args)
 
