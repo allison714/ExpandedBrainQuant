@@ -86,7 +86,7 @@ PEAK_RATIO = (0.25, 4.0) # second peak's height as a share of the first
 # 95% of them ranked above 0.996, against a median of 0.978 for the other double peaks.
 PSD_RANK = 0.995
 AB_SIGMAS = 6.0          # antibody-positive: this many noise-widths above the plane's median
-TOP_N = 60               # synapses pictured and logged per sample
+TOP_N = 150              # synapses pictured and logged per sample (was 60 until 2026-10-28; --top overrides)
 # Antibody labelling, measured at the synapses (see antibody_numbers):
 ON_SYNAPSE_X = 2.0       # a punctum this many nominal DP-PSD distances from a synapse's centre is "on" it
 SPOT_MIN_PX = 3          # a punctum is at least this many connected pixels above the threshold
@@ -1274,7 +1274,10 @@ def main():
     p.add_argument("--links", action="store_true",
                    help="only save a Neuroglancer view for every synapse already in the log, and link them there")
     p.add_argument("--out", help="folder for the log and pictures, instead of the one in settings.ini")
+    p.add_argument("--top", type=int, default=TOP_N, help=f"synapses pictured and logged per sample (default {TOP_N})")
     args = p.parse_args()
+    global TOP_N
+    TOP_N = args.top
     return add_links(args.text) if args.links else run(args)
 
 

@@ -27,7 +27,8 @@ header .progress { font-size:13px; color:var(--dim); }
 main { flex:1 1 auto; padding:12px 16px 130px; max-width:1100px; width:100%; margin:0 auto; box-sizing:border-box; }
 .stage { position:relative; background:#0b0d10; border:1px solid var(--line); border-radius:10px; overflow:auto; max-height:62vh;
   touch-action: pan-y pinch-zoom; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
-.stage.zoom { touch-action: pan-x pan-y pinch-zoom; }
+.stage.zoom { touch-action: pan-y pinch-zoom; }
+.stage.zoom img { cursor: grab; }
 .stage img { display:block; width:100%; max-width:none; height:auto; }
 .stage.zoom img { width:220%; }
 .verdict { position:absolute; inset:0; display:grid; place-items:center; font-size:56px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .12s; }
@@ -77,13 +78,13 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
 <main>
   <div id="empty" class="empty"></div>
   <div id="card" hidden>
-    <div class="stage" id="stage"><img id="img" alt="Synapse card: pan tile, antibody tile, overlay and profile"><span class="stamp" id="stamp" hidden></span><div class="verdict" id="verdict"></div></div>
+    <div class="stage zoom" id="stage"><img id="img" alt="Synapse card: pan tile, antibody tile, overlay and profile"><span class="stamp" id="stamp" hidden></span><div class="verdict" id="verdict"></div></div>
     <div class="title"><span class="name" id="name"></span><span class="id num" id="sid"></span></div>
     <div class="chips" id="chips"></div>
     <div class="links">
       <a id="pngLink" target="_blank" rel="noopener">Full-size card</a>
       <a id="ngLink" target="_blank" rel="noopener">Open in Neuroglancer</a>
-      <a href="#" id="zoomLink">Zoom 2x</a>
+      <a href="#" id="zoomLink">Zoom 1x</a>
     </div>
     <div class="note"><input id="note" placeholder="Note (optional): tilted, membrane pair, vessel..." maxlength="200"><button id="saveNote">Save note</button></div>
     <p class="hint">Swipe right or press Y to accept, swipe left or N to reject, U for unsure, Backspace to go back, right arrow to skip. Double-tap the card to zoom.</p>
@@ -115,7 +116,9 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const load = () => { try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); state.local = o.d || {}; state.exportedAt = o.exportedAt || null; } catch (e) { state.local = {}; } };
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ d: state.local, exportedAt: state.exportedAt })); } catch (e) { toast("Could not save in this browser"); } };
   const remember = () => { try { localStorage.setItem(PREFS, JSON.stringify({ sample: $("sample").value, order: $("order").value,
-    unrev: $("fUnrev").getAttribute("aria-pressed"), ab: $("fAb").getAttribute("aria-pressed"), inr: $("fIn").getAttribute("aria-pressed") })); } catch (e) {} };
+    unrev: $("fUnrev").getAttribute("aria-pressed"), ab: $("fAb").getAttribute("aria-pressed"), inr: $("fIn").getAttribute("aria-pressed"),
+    zoom: $("stage").classList.contains("zoom") })); } catch (e) {} };
+  const setZoom = on => { $("stage").classList.toggle("zoom", on); $("zoomLink").textContent = on ? "Zoom 1x" : "Zoom 2x"; remember(); };
   const recall = () => { try { return JSON.parse(localStorage.getItem(PREFS) || "{}"); } catch (e) { return {}; } };
   const toast = t => { const s = $("status"); s.textContent = t; s.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => s.classList.remove("show"), 1600); };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -175,7 +178,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     if (r.score !== undefined) chip("example score", fmt(r.score, 2));
     if (r.r2 !== undefined) chip("fit R2", fmt(r.r2, 3)); if (r.dip !== undefined) chip("dip", fmt(r.dip, 2)); if (r.pr !== undefined) chip("peak ratio", fmt(r.pr, 2));
     if (r.by) chip("PSD named by", r.by);
-    $("chips").innerHTML = chips.join(""); $("stage").classList.remove("zoom"); $("stage").scrollTo(0, 0);
+    $("chips").innerHTML = chips.join(""); $("stage").scrollTo(0, 0);
     const nx = state.filtered[state.i + 1]; if (nx) { const p = new Image(); p.src = META.img_base + encodeURIComponent(nx.s) + "/" + encodeURIComponent(nx.img) + ".jpg"; }
   }
   const flash = v => { const e = $("verdict"); e.textContent = v === "Y" ? "accepted" : v === "N" ? "rejected" : "unsure"; e.style.color = v === "Y" ? "var(--yes)" : v === "N" ? "var(--no)" : "var(--unsure)"; e.classList.add("show"); setTimeout(() => e.classList.remove("show"), 350); };
@@ -234,12 +237,12 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     if (k === "y") decide("Y"); else if (k === "n") decide("N"); else if (k === "u" || k === "?") decide("?");
     else if (k === "backspace" || k === "arrowleft") { e.preventDefault(); back(); }
     else if (k === "arrowright" || k === " ") { e.preventDefault(); state.i = Math.min(state.i + 1, state.filtered.length - 1); render(); }
-    else if (k === "z") $("stage").classList.toggle("zoom");
+    else if (k === "z") setZoom(!$("stage").classList.contains("zoom"));
   });
   $("yes").onclick = () => decide("Y"); $("no").onclick = () => decide("N"); $("unsure").onclick = () => decide("?"); $("back").onclick = back;
   $("saveNote").onclick = saveNote; $("export").onclick = exportCsv; $("copy").onclick = copyCsv;
   $("importFile").onchange = e => { if (e.target.files[0]) importCsv(e.target.files[0]); e.target.value = ""; };
-  $("zoomLink").onclick = e => { e.preventDefault(); $("stage").classList.toggle("zoom"); };
+  $("zoomLink").onclick = e => { e.preventDefault(); setZoom(!$("stage").classList.contains("zoom")); };
   for (const id of ["fUnrev", "fAb", "fIn"]) $(id).onclick = () => { const b = $(id); b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); applyFilter(false); };
   $("sample").onchange = () => applyFilter(false); $("order").onchange = () => applyFilter(true);
   // Swipe and double-tap. Touch events are used on phones (Android cancels pointer events once it decides a
@@ -247,8 +250,9 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const stage = $("stage"); let sx = null, sy = null, lastTap = 0;
   const began = (x, y) => { sx = x; sy = y; };
   const ended = (x, y) => { if (sx === null) return; const dx = x - sx, dy = y - sy; sx = null;
-    if (Math.abs(dx) > 70 && Math.abs(dy) < 70 && !stage.classList.contains("zoom")) { decide(dx > 0 ? "Y" : "N"); return; }
-    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) { const now = Date.now(); if (now - lastTap < 320) { stage.classList.toggle("zoom"); lastTap = 0; } else lastTap = now; } };
+    const zoomed = stage.classList.contains("zoom");
+    if (Math.abs(dx) > (zoomed ? 160 : 70) && Math.abs(dy) < 70 && Math.abs(dx) > 2 * Math.abs(dy)) { decide(dx > 0 ? "Y" : "N"); return; }
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) { const now = Date.now(); if (now - lastTap < 320) { setZoom(!stage.classList.contains("zoom")); lastTap = 0; } else lastTap = now; } };
   stage.addEventListener("touchstart", e => { if (e.touches.length === 1) began(e.touches[0].clientX, e.touches[0].clientY); else sx = null; }, { passive: true });
   stage.addEventListener("touchend", e => { if (e.changedTouches.length === 1) ended(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: true });
   stage.addEventListener("touchcancel", () => { sx = null; }, { passive: true });
@@ -262,6 +266,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   if (saved.order) $("order").value = saved.order;
   if (saved.unrev) $("fUnrev").setAttribute("aria-pressed", saved.unrev);
   if (saved.ab) $("fAb").setAttribute("aria-pressed", saved.ab); if (saved.inr) $("fIn").setAttribute("aria-pressed", saved.inr);
+  if (saved.zoom === false) setZoom(false);
   applyFilter(false);
 })();
 </script></body></html>
