@@ -26,7 +26,8 @@ header .progress { font-size:13px; color:var(--dim); }
 .bar i { display:block; height:100%; background:var(--accent); width:0; transition:width .2s; }
 main { flex:1 1 auto; padding:12px 16px 130px; max-width:1100px; width:100%; margin:0 auto; box-sizing:border-box; }
 .stage { position:relative; background:#0b0d10; border:1px solid var(--line); border-radius:10px; overflow:auto; max-height:62vh;
-  touch-action: pan-x pan-y pinch-zoom; -webkit-overflow-scrolling: touch; }
+  touch-action: pan-y pinch-zoom; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.stage.zoom { touch-action: pan-x pan-y pinch-zoom; }
 .stage img { display:block; width:100%; max-width:none; height:auto; }
 .stage.zoom img { width:220%; }
 .verdict { position:absolute; inset:0; display:grid; place-items:center; font-size:56px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .12s; }
@@ -241,11 +242,18 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   $("zoomLink").onclick = e => { e.preventDefault(); $("stage").classList.toggle("zoom"); };
   for (const id of ["fUnrev", "fAb", "fIn"]) $(id).onclick = () => { const b = $(id); b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); applyFilter(false); };
   $("sample").onchange = () => applyFilter(false); $("order").onchange = () => applyFilter(true);
+  // Swipe and double-tap. Touch events are used on phones (Android cancels pointer events once it decides a
+  // finger is scrolling); mouse pointer events on a desktop.
   const stage = $("stage"); let sx = null, sy = null, lastTap = 0;
-  stage.addEventListener("pointerdown", e => { sx = e.clientX; sy = e.clientY; });
-  stage.addEventListener("pointerup", e => { if (sx === null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
-    if (Math.abs(dx) > 90 && Math.abs(dy) < 60 && !stage.classList.contains("zoom")) { decide(dx > 0 ? "Y" : "N"); return; }
-    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) { const now = Date.now(); if (now - lastTap < 320) { stage.classList.toggle("zoom"); lastTap = 0; } else lastTap = now; } });
+  const began = (x, y) => { sx = x; sy = y; };
+  const ended = (x, y) => { if (sx === null) return; const dx = x - sx, dy = y - sy; sx = null;
+    if (Math.abs(dx) > 70 && Math.abs(dy) < 70 && !stage.classList.contains("zoom")) { decide(dx > 0 ? "Y" : "N"); return; }
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) { const now = Date.now(); if (now - lastTap < 320) { stage.classList.toggle("zoom"); lastTap = 0; } else lastTap = now; } };
+  stage.addEventListener("touchstart", e => { if (e.touches.length === 1) began(e.touches[0].clientX, e.touches[0].clientY); else sx = null; }, { passive: true });
+  stage.addEventListener("touchend", e => { if (e.changedTouches.length === 1) ended(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: true });
+  stage.addEventListener("touchcancel", () => { sx = null; }, { passive: true });
+  stage.addEventListener("pointerdown", e => { if (e.pointerType === "mouse") began(e.clientX, e.clientY); });
+  stage.addEventListener("pointerup", e => { if (e.pointerType === "mouse") ended(e.clientX, e.clientY); });
 
   load(); fillSamples();
   const saved = recall(); const q = new URLSearchParams(location.search).get("sample") || decodeURIComponent(location.hash.slice(1));
