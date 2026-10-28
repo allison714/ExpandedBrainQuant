@@ -44,6 +44,13 @@ main { flex:1 1 auto; padding:12px 16px 130px; max-width:1100px; width:100%; mar
 .links { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:10px; font-size:13px; } .links a { color:var(--accent); }
 .note { margin-top:10px; display:flex; gap:6px; }
 .note input { flex:1 1 auto; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+.note select { flex:0 1 190px; min-width:0; background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 6px; font-size:13px; }
+.sample { margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--panel); }
+.sample h3 { margin:0 0 8px; font-size:13px; color:var(--dim); font-weight:400; letter-spacing:.03em; text-transform:uppercase; }
+.sample .row { display:flex; flex-wrap:wrap; gap:6px; }
+.sample input, .sample select { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; min-width:0; }
+.sample #mouse { flex:1 1 120px; } .sample #geno { flex:0 1 120px; } .sample #snotes { flex:1 1 100%; }
+.sample button { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px; }
 .note button, .io button, .io label { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:13px; cursor:pointer; }
 .io { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px; font-size:13px; color:var(--dim); }
 .io input[type=file] { display:none; }
@@ -86,7 +93,12 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
       <a id="ngLink" target="_blank" rel="noopener">Open in Neuroglancer</a>
       <a href="#" id="zoomLink">Zoom 1x</a>
     </div>
-    <div class="note"><input id="note" placeholder="Note (optional): tilted, membrane pair, vessel..." maxlength="200"><button id="saveNote">Save note</button></div>
+    <div class="note"><select id="cls" aria-label="Reviewed class" title="Your call on the synapse class; blank keeps the automatic one">
+        <option value="">class: as detected</option><option>Type I, macular</option><option>Type I, perforated</option><option>Type II (putative)</option><option>Not a synapse</option><option>Multiple synapses</option><option>Tilted / oblique</option></select>
+      <input id="note" placeholder="Note (optional): tilted, membrane pair, vessel..." maxlength="200"><button id="saveNote">Save</button></div>
+    <div class="sample"><h3>This dataset</h3><div class="row">
+      <input id="mouse" placeholder="Mouse (e.g. WT4, KO1b)" maxlength="40"><select id="geno" aria-label="Genotype"><option value="">genotype</option><option>WT</option><option>KO</option><option>HET</option><option>unknown</option></select>
+      <input id="snotes" placeholder="Notes about this dataset (staining, imaging, what to re-check)" maxlength="500"><button id="saveSample">Save dataset notes</button></div></div>
     <p class="hint">Swipe right or press Y to accept, swipe left or N to reject, U for unsure, Backspace to go back, right arrow to skip. Double-tap the card to zoom.</p>
   </div>
   <div class="io">
@@ -111,10 +123,10 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const DATA = JSON.parse($("data").textContent);
   const META = DATA.meta, ROWS = DATA.rows;
   const STORE = "synapse-review-decisions", PREFS = "synapse-review-prefs";
-  const state = { local: {}, filtered: [], i: 0, history: [], exportedAt: null };
+  const state = { local: {}, samples: {}, filtered: [], i: 0, history: [], exportedAt: null };
 
-  const load = () => { try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); state.local = o.d || {}; state.exportedAt = o.exportedAt || null; } catch (e) { state.local = {}; } };
-  const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ d: state.local, exportedAt: state.exportedAt })); } catch (e) { toast("Could not save in this browser"); } };
+  const load = () => { try { const o = JSON.parse(localStorage.getItem(STORE) || "{}"); state.local = o.d || {}; state.samples = o.s || {}; state.exportedAt = o.exportedAt || null; } catch (e) { state.local = {}; state.samples = {}; } };
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ d: state.local, s: state.samples, exportedAt: state.exportedAt })); } catch (e) { toast("Could not save in this browser"); } };
   const remember = () => { try { localStorage.setItem(PREFS, JSON.stringify({ sample: $("sample").value, order: $("order").value,
     unrev: $("fUnrev").getAttribute("aria-pressed"), ab: $("fAb").getAttribute("aria-pressed"), inr: $("fIn").getAttribute("aria-pressed"),
     zoom: $("stage").classList.contains("zoom") })); } catch (e) {} };
@@ -168,11 +180,13 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     $("name").textContent = `${r.s}  #${r.n}`; $("sid").textContent = r.id + (r.z !== undefined ? `  z${r.z}` : "");
     const d = decisionOf(r); const st = $("stamp"); st.hidden = !(d && d.accept);
     if (d && d.accept) { st.dataset.v = d.accept; st.textContent = (d.accept === "Y" ? "accepted" : d.accept === "N" ? "rejected" : "unsure") + (d.baked ? " (in log)" : ""); }
-    $("note").value = (d && d.notes) || "";
+    $("note").value = (d && d.notes) || ""; $("cls").value = (d && d.cls) || (r.rcls || "");
+    const sm = state.samples[r.s] || (r.mouse || r.geno || r.snotes ? { mouse: r.mouse || "", geno: r.geno || "", notes: r.snotes || "" } : null);
+    $("mouse").value = sm ? sm.mouse || "" : ""; $("geno").value = sm ? sm.geno || "" : ""; $("snotes").value = sm ? sm.notes || "" : "";
     const chips = []; const chip = (l, v, c) => chips.push(`<span class="chip ${c || ""}"><b>${l}</b><span class="num">${esc(v)}</span></span>`);
     if (r.exf !== undefined) chip("ExF p2p", fmt(r.exf, 1), r.in ? "good" : "warn");
     if (r.exfg !== undefined) chip("ExF fit", fmt(r.exfg, 1));
-    if (r.cls) chip("class", r.cls);
+    if (r.cls) chip("class", r.cls + (r.rcls ? "  (reviewed: " + r.rcls + ")" : ""));
     if (r.ab) chip(r.ab.split(",")[0].trim(), (r.abs !== undefined ? fmt(r.abs, 1) + " sigma" : "") + (r.abp ? " +" : ""), r.abp ? "good" : "");
     if (r.ab && r.ab.includes(",")) chip(r.ab.split(",")[1].trim(), (r.ab2s !== undefined ? fmt(r.ab2s, 1) + " sigma" : "") + (r.ab2p ? " +" : ""), r.ab2p ? "good" : "");
     if (r.score !== undefined) chip("example score", fmt(r.score, 2));
@@ -184,7 +198,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const flash = v => { const e = $("verdict"); e.textContent = v === "Y" ? "accepted" : v === "N" ? "rejected" : "unsure"; e.style.color = v === "Y" ? "var(--yes)" : v === "N" ? "var(--no)" : "var(--unsure)"; e.classList.add("show"); setTimeout(() => e.classList.remove("show"), 350); };
   function decide(v) {
     const r = state.filtered[state.i]; if (!r) return;
-    state.local[r.k] = { accept: v, notes: $("note").value.trim(), at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
+    state.local[r.k] = { accept: v, notes: $("note").value.trim(), cls: $("cls").value, at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
     save(); flash(v); state.history.push(r.k);
     if ($("fUnrev").getAttribute("aria-pressed") === "true") applyFilter(false); else { state.i = Math.min(state.i + 1, state.filtered.length); render(); }
     fillSamples();
@@ -196,16 +210,22 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   }
   function saveNote() {
     const r = state.filtered[state.i]; if (!r) return; const d = decisionOf(r) || {};
-    state.local[r.k] = { accept: d.accept || null, notes: $("note").value.trim(), at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
-    save(); toast("Note saved"); render();
+    state.local[r.k] = { accept: d.accept || null, notes: $("note").value.trim(), cls: $("cls").value, at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
+    save(); toast("Saved"); render();
+  }
+  function saveSample() {
+    const r = state.filtered[state.i]; if (!r) return;
+    state.samples[r.s] = { mouse: $("mouse").value.trim(), geno: $("geno").value, notes: $("snotes").value.trim(), at: new Date().toISOString() };
+    save(); toast("Dataset notes saved"); ioText();
   }
   function csv() {
-    const rows = [["key", "sample", "synapse_id", "n", "accept", "notes", "at"]];
-    for (const [k, d] of Object.entries(state.local)) rows.push([k, d.sample, d.id, d.n, d.accept || "?", d.notes || "", d.at || ""]);
+    const rows = [["key", "sample", "synapse_id", "n", "accept", "notes", "at", "cls", "mouse", "genotype"]];
+    for (const [k, d] of Object.entries(state.local)) rows.push([k, d.sample, d.id, d.n, d.accept || "?", d.notes || "", d.at || "", d.cls || "", "", ""]);
+    for (const [s, m] of Object.entries(state.samples)) rows.push([s + "__SAMPLE", s, "", 0, "", m.notes || "", m.at || "", "", m.mouse || "", m.geno || ""]);
     return rows.map(x => x.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\r\n") + "\r\n";
   }
   function exportCsv() {
-    const n = Object.keys(state.local).length; if (!n) { toast("Nothing to export yet"); return; }
+    const n = Object.keys(state.local).length + Object.keys(state.samples).length; if (!n) { toast("Nothing to export yet"); return; }
     const blob = new Blob([csv()], { type: "text/csv" }); const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = `synapse_decisions_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`;
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
@@ -220,10 +240,12 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
       if (ix("key") < 0 || ix("accept") < 0) { toast("Not a decisions CSV"); return; }
       let added = 0;
       for (const line of lines.slice(1)) { const c = parse(line); const k = c[ix("key")]; if (!k) continue;
-        const at = ix("at") >= 0 ? c[ix("at")] : ""; const have = state.local[k];
+        const at = ix("at") >= 0 ? c[ix("at")] : "";
+        if (k.endsWith("__SAMPLE")) { const s = k.slice(0, -8); const hv = state.samples[s]; if (!(hv && hv.at && at && hv.at >= at)) { state.samples[s] = { mouse: ix("mouse") >= 0 ? c[ix("mouse")] : "", geno: ix("genotype") >= 0 ? c[ix("genotype")] : "", notes: ix("notes") >= 0 ? c[ix("notes")] : "", at: at || new Date().toISOString() }; added++; } continue; }
+        const have = state.local[k];
         if (have && have.at && at && have.at >= at) continue;
         const acc = (c[ix("accept")] || "").toUpperCase(); const [s, id] = k.split("__");
-        state.local[k] = { accept: ["Y", "N", "?"].includes(acc) ? acc : null, notes: ix("notes") >= 0 ? c[ix("notes")] : "", at: at || new Date().toISOString(), sample: s, id, n: ix("n") >= 0 ? +c[ix("n")] : undefined }; added++; }
+        state.local[k] = { accept: ["Y", "N", "?"].includes(acc) ? acc : null, notes: ix("notes") >= 0 ? c[ix("notes")] : "", cls: ix("cls") >= 0 ? c[ix("cls")] : "", at: at || new Date().toISOString(), sample: s, id, n: ix("n") >= 0 ? +c[ix("n")] : undefined }; added++; }
       save(); fillSamples(); applyFilter(true); toast(`Imported ${added} decisions`);
     }; rd.readAsText(file);
   }
@@ -240,7 +262,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     else if (k === "z") setZoom(!$("stage").classList.contains("zoom"));
   });
   $("yes").onclick = () => decide("Y"); $("no").onclick = () => decide("N"); $("unsure").onclick = () => decide("?"); $("back").onclick = back;
-  $("saveNote").onclick = saveNote; $("export").onclick = exportCsv; $("copy").onclick = copyCsv;
+  $("saveNote").onclick = saveNote; $("saveSample").onclick = saveSample; $("export").onclick = exportCsv; $("copy").onclick = copyCsv;
   $("importFile").onchange = e => { if (e.target.files[0]) importCsv(e.target.files[0]); e.target.value = ""; };
   $("zoomLink").onclick = e => { e.preventDefault(); setZoom(!$("stage").classList.contains("zoom")); };
   for (const id of ["fUnrev", "fAb", "fIn"]) $(id).onclick = () => { const b = $(id); b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); applyFilter(false); };

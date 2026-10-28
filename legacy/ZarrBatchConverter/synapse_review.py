@@ -75,9 +75,27 @@ def rows_from_log():
              "dip": num(v[ci["Dip"]]), "pr": num(v[ci["Peak Ratio"]]), "z": v[ci["Slice"]],
              "ng": ng_t[len(NG_PREFIX):] if ng_t.startswith(NG_PREFIX) else None,
              "acc": (str(v[ci["Accept"]]).strip().upper() if v[ci["Accept"]] else None),
-             "notes": (str(v[ci["Notes"]]).strip() if v[ci["Notes"]] else None)}
+             "notes": (str(v[ci["Notes"]]).strip() if v[ci["Notes"]] else None),
+             "rcls": (str(v[ci["Reviewed Class"]]).strip() if "Reviewed Class" in ci and v[ci["Reviewed Class"]] else None)}
         out.append({k: x for k, x in d.items() if x not in (None, False, "")} | {"abp": d["abp"], "ab2p": d["ab2p"], "in": d["in"]})
     return out
+
+
+def with_manifest(rows):
+    """Mouse, genotype and notes from datasets.csv (written by review_import.py) onto each row of that dataset."""
+    import csv
+    manifest = EXF / "datasets.csv"
+    if not manifest.is_file():
+        return rows
+    with open(manifest, newline="", encoding="utf-8-sig") as f:
+        meta = {r["dataset"]: r for r in csv.DictReader(f)}
+    for r in rows:
+        m = meta.get(r["s"])
+        if m:
+            for key, col in (("mouse", "animal"), ("geno", "genotype"), ("snotes", "notes")):
+                if m.get(col):
+                    r[key] = m[col]
+    return rows
 
 
 def build(rows, img_base, png_base):
@@ -94,7 +112,7 @@ def main():
         print("No card JPEGs yet: running review_thumbs.py first.")
         import review_thumbs
         review_thumbs.main()
-    rows = rows_from_log()
+    rows = with_manifest(rows_from_log())
     decided = sum(1 for r in rows if r.get("acc") in ("Y", "N"))
     print(f"{len(rows)} logged synapses from {len({r['s'] for r in rows})} samples; {decided} already accepted or rejected in the log.")
 

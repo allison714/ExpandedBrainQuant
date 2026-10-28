@@ -113,7 +113,7 @@ ANTIBODIES = {
 COLUMNS = [
     ("#", 6), ("Sample", 40), ("Slice", 7), ("X (px)", 9), ("Y (px)", 9), ("Antibody", 12), ("AB Signal (σ)", 13),
     ("AB+", 6), ("AB2 Signal (σ)", 13), ("AB2+", 6), ("AB1–AB2 (µm, as imaged)", 12), ("DP–PSD (µm, as imaged)", 14), ("ExF (peak to peak)", 12), ("ExF (Gaussian fit)", 12), ("In 16–24", 9), ("Class", 18), ("PSD Named By", 11), ("Example Score", 9), ("Synapse ID", 22), ("Fit R²", 8), ("Dip", 7),
-    ("Peak Ratio", 10), ("Accept", 9), ("Notes", 40), ("Picture", 12), ("Neuroglancer", 13),
+    ("Peak Ratio", 10), ("Accept", 9), ("Notes", 40), ("Reviewed Class", 18), ("Picture", 12), ("Neuroglancer", 13),
 ]
 HEADERS = [c[0] for c in COLUMNS]
 
@@ -794,7 +794,7 @@ def summarise(values):
 
 
 def read_decisions(path):
-    """What was typed in the log: {(sample, slice): [(x, y, accept, notes)]}."""
+    """What was typed in the log: {(sample, slice): [(x, y, accept, notes, reviewed class)]}."""
     kept = {}
     if not path.is_file():
         return kept
@@ -804,15 +804,16 @@ def read_decisions(path):
         if row[cols["Sample"]] is None:
             continue
         kept.setdefault((row[cols["Sample"]], row[cols["Slice"]]), []).append(
-            (row[cols["X (px)"]], row[cols["Y (px)"]], row[cols["Accept"]], row[cols["Notes"]]))
+            (row[cols["X (px)"]], row[cols["Y (px)"]], row[cols["Accept"]], row[cols["Notes"]],
+             row[cols["Reviewed Class"]] if "Reviewed Class" in cols else None))
     return kept
 
 
 def decision_for(kept, sample, h, radius=8):
-    for x, y, accept, notes in kept.get((sample, h["z"]), []):
+    for x, y, accept, notes, reviewed in kept.get((sample, h["z"]), []):
         if abs(x - h["col"]) <= radius and abs(y - h["row"]) <= radius:
-            return accept, notes
-    return None, None
+            return accept, notes, reviewed
+    return None, None, None
 
 
 METHOD = [
@@ -968,7 +969,7 @@ def write_log(path, rows, summary):
             if header in ("Picture", "Neuroglancer") and value:
                 cell.value, cell.hyperlink = "open", value
                 cell.font = Font(color="0563C1", underline="single")
-            elif header in ("Accept", "Notes"):
+            elif header in ("Accept", "Notes", "Reviewed Class"):
                 cell.fill = mine
     choice = DataValidation(type="list", formula1='"Y,N"', allow_blank=True)
     ws.add_data_validation(choice)
@@ -1150,7 +1151,7 @@ def run(args):
                             ab2_colour=eff.colour_of(ab2_ch), ab2_label=ab2_ch["label"])
             png = folder / f"{name}_synapse-{number:03d}_z{h['z']:04d}_x{round(h['col']):05d}_y{round(h['row']):05d}.png"
             card(png, number, name, h, tile, um, channels[pan], ab_ch, bar_exf)
-            accept, notes = decision_for(kept, name, h)
+            accept, notes, reviewed = decision_for(kept, name, h)
             decisions.append(accept)
             shown.append((number, h, tile))
             rows.append({
@@ -1164,7 +1165,7 @@ def run(args):
                 "Fit R²": round(h["r2"], 3), "Dip": round(h["dip"], 2), "Peak Ratio": round(h["ratio"], 2),
                 "Class": h["class"], "PSD Named By": h["psd_by"], "Example Score": round(h["example"], 2),
                 "Synapse ID": f"z{h['z']:04d}_x{round(h['col']):05d}_y{round(h['row']):05d}",
-                "Accept": accept, "Notes": notes, "Picture": str(png),
+                "Accept": accept, "Notes": notes, "Reviewed Class": reviewed, "Picture": str(png),
                 "Neuroglancer": synapse_link(out_root, name, number, h, write=not args.no_links),
             })
         if shown:
