@@ -33,6 +33,7 @@ LOG = EXF / "Synapse Log.xlsx"
 MANIFEST = EXF / "datasets.csv"
 HEADER_ROW = 3
 REVIEWED = "Reviewed Class"
+LINE, MANUAL_RESULTS = "Manual Line", ("P2P Manual (µm)", "ExF (manual line)")   # the page's line tool; results from remeasure_lines.py
 MANIFEST_COLS = ["dataset", "path", "animal", "genotype", "sex", "age", "region", "exf", "notes"]
 
 
@@ -74,7 +75,8 @@ def main():
             samples[key[:-8]] = {"mouse": (r.get("mouse") or "").strip(), "genotype": (r.get("genotype") or "").strip(), "notes": (r.get("notes") or "").strip()}
             continue
         acc = (r.get("accept") or "").strip().upper()
-        decisions[key] = (acc if acc in ("Y", "N") else None, (r.get("notes") or "").strip() or None, (r.get("cls") or "").strip() or None)
+        decisions[key] = (acc if acc in ("Y", "N") else None, (r.get("notes") or "").strip() or None, (r.get("cls") or "").strip() or None,
+                          (r.get("line") or "").strip() or None)
     print(f"{len(decisions)} synapse decisions and {len(samples)} dataset notes in {a.csv}")
 
     wb = load_workbook(LOG)
@@ -87,6 +89,14 @@ def main():
         ws.column_dimensions[h.column_letter].width = 18
         cols = {c.value: c.column for c in ws[HEADER_ROW] if c.value}
         print(f"added the '{REVIEWED}' column after Notes")
+    for name in (LINE,) + MANUAL_RESULTS:      # the measurement-line columns, after Reviewed Class, in this order
+        if name not in cols:
+            at = max(cols[REVIEWED], *(cols[n] for n in (LINE,) + MANUAL_RESULTS if n in cols)) + 1
+            ws.insert_cols(at)
+            h = ws.cell(HEADER_ROW, at, name); h.font = Font(bold=True)
+            ws.column_dimensions[h.column_letter].width = 24 if name == LINE else 12
+            cols = {c.value: c.column for c in ws[HEADER_ROW] if c.value}
+            print(f"added the '{name}' column")
     mine = PatternFill("solid", fgColor="FFF2CC")
     hit = changed = 0
     for row in ws.iter_rows(min_row=HEADER_ROW + 1):
@@ -97,8 +107,15 @@ def main():
         if key not in decisions:
             continue
         hit += 1
-        acc, notes, cls = decisions[key]
+        acc, notes, cls, line = decisions[key]
         targets = [(row[cols["Accept"] - 1], acc, True), (row[cols["Notes"] - 1], notes, bool(notes)), (row[cols[REVIEWED] - 1], cls, bool(cls))]
+        if line == "clear":      # the reviewer removed her line: drop it and its results
+            targets += [(row[cols[n] - 1], None, True) for n in (LINE,) + MANUAL_RESULTS]
+        elif line:
+            old = row[cols[LINE] - 1].value
+            targets.append((row[cols[LINE] - 1], line, True))
+            if old != line:      # a new line: its old results no longer apply until remeasure_lines.py runs
+                targets += [(row[cols[n] - 1], None, True) for n in MANUAL_RESULTS]
         for cell, value, write in targets:
             if write and cell.value != value:
                 changed += 1
@@ -112,7 +129,7 @@ def main():
     if not a.dry_run and mchanged:
         print(f"saved {MANIFEST}")
     if not a.dry_run:
-        print("Now run Measure_ExF.bat (accepted-only ExF) and Build_Synapse_Review.bat (bake decisions into the page).")
+        print("Now run Remeasure_Lines.bat if you placed lines, then Measure_ExF.bat (accepted-only ExF) and Build_Synapse_Review.bat.")
 
 
 if __name__ == "__main__":

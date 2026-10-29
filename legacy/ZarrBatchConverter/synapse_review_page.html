@@ -30,7 +30,15 @@ main { flex:1 1 auto; padding:12px 16px 130px; max-width:1100px; width:100%; mar
 .stage.zoom { touch-action: pan-y pinch-zoom; }
 .stage.zoom img { cursor: grab; }
 .stage img { display:block; width:100%; max-width:none; height:auto; }
-.stage.zoom img { width:220%; }
+.stage .wrap { position:relative; display:inline-block; width:100%; }
+.stage.zoom .wrap { width:220%; } .stage.zoom .wrap img { width:100%; }
+.stage svg.lines { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; }
+.stage.lining { outline:2px solid #2fd6e8; outline-offset:-2px; }
+.linebar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; font-size:13px; }
+.linebar[hidden] { display:none; }
+.linebar button { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:7px 11px; font-size:13px; }
+.linebar .tip { color:var(--dim); flex:1 1 100%; }
+.stage.zoom > img { width:220%; }
 .verdict { position:absolute; inset:0; display:grid; place-items:center; font-size:56px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .12s; }
 .verdict.show { opacity:.85; }
 .stamp { position:absolute; top:10px; left:10px; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:6px; background:var(--panel); border:1px solid var(--line); color:var(--dim); }
@@ -88,13 +96,18 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
 <main>
   <div id="empty" class="empty"></div>
   <div id="card" hidden>
-    <div class="stage zoom" id="stage"><img id="img" alt="Synapse card: pan tile, antibody tile, overlay and profile"><span class="stamp" id="stamp" hidden></span><div class="verdict" id="verdict"></div></div>
+    <div class="stage zoom" id="stage"><div class="wrap" id="wrap"><img id="img" alt="Synapse card: pan tile, antibody tile, overlay and profile"><svg class="lines" id="lines" viewBox="0 0 1 1" preserveAspectRatio="none"></svg></div><span class="stamp" id="stamp" hidden></span><div class="verdict" id="verdict"></div></div>
     <div class="title"><span class="name" id="name"></span><span class="id num" id="sid"></span></div>
     <div class="chips" id="chips"></div>
     <div class="links">
       <a id="pngLink" target="_blank" rel="noopener">Full-size card</a>
       <a id="ngLink" target="_blank" rel="noopener">Open in Neuroglancer</a>
       <a href="#" id="zoomLink">Zoom 1x</a>
+      <a href="#" id="lineLink" title="Place the measurement line yourself: tap the dense projections (DP), then the PSD, on the overlay panel">Fix line</a>
+    </div>
+    <div class="linebar" id="linebar" hidden>
+      <span class="tip" id="linetip">Tap the DP, then the PSD, on the overlay panel (the one with the red line).</span>
+      <button id="lineSave">Save line</button><button id="lineClear">Remove my line</button><button id="lineCancel">Cancel</button>
     </div>
     <div class="note"><select id="cls" aria-label="Reviewed class" title="Your call on the synapse class; blank keeps the automatic one">
         <option value="">class: as detected</option><option>Type I, macular</option><option>Type I, perforated</option><option>Type II (putative)</option><option>Not a synapse</option><option>Multiple synapses</option><option>Tilted / oblique</option></select>
@@ -140,7 +153,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const fmt = (v, d) => (v === undefined || v === null) ? "" : Number(v).toFixed(d);
   // a decision: what this browser recorded, else what the log had when the page was built
-  const decisionOf = r => state.local[r.k] || (r.acc || r.notes ? { accept: r.acc || null, notes: r.notes || "", baked: true } : null);
+  const decisionOf = r => state.local[r.k] || (r.acc || r.notes || r.ml ? { accept: r.acc || null, notes: r.notes || "", line: r.ml || null, baked: true } : null);
 
   function applyFilter(keepIndex) {
     const sample = $("sample").value, unrev = $("fUnrev").getAttribute("aria-pressed") === "true", show = $("show").value;
@@ -198,13 +211,16 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     if (r.score !== undefined) chip("example score", fmt(r.score, 2));
     if (r.r2 !== undefined) chip("fit R2", fmt(r.r2, 3)); if (r.dip !== undefined) chip("dip", fmt(r.dip, 2)); if (r.pr !== undefined) chip("peak ratio", fmt(r.pr, 2));
     if (r.by) chip("PSD named by", r.by);
+    if (d && Array.isArray(d.line)) chip("your line", "set" + (r.mexf !== undefined ? ", ExF " + fmt(r.mexf, 1) : ""), "good");
     $("chips").innerHTML = chips.join(""); $("stage").scrollTo(0, 0);
+    $("lineLink").hidden = !r.lb; if (tool.on) lineMode(false); $("img").onload = drawLines; drawLines();
     const nx = state.filtered[state.i + 1]; if (nx) { const p = new Image(); p.src = META.img_base + encodeURIComponent(nx.s) + "/" + encodeURIComponent(nx.img) + ".jpg"; }
   }
   const flash = v => { const e = $("verdict"); e.textContent = v === "Y" ? "accepted" : v === "N" ? "rejected" : "unsure"; e.style.color = v === "Y" ? "var(--yes)" : v === "N" ? "var(--no)" : "var(--unsure)"; e.classList.add("show"); setTimeout(() => e.classList.remove("show"), 350); };
   function decide(v) {
     const r = state.filtered[state.i]; if (!r) return;
-    state.local[r.k] = { accept: v, notes: $("note").value.trim(), cls: $("cls").value, at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
+    const was = decisionOf(r) || {};
+    state.local[r.k] = { accept: v, notes: $("note").value.trim(), cls: $("cls").value, line: was.line || null, at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
     save(); flash(v); state.history.push(r.k);
     if ($("fUnrev").getAttribute("aria-pressed") === "true") applyFilter(false); else { state.i = Math.min(state.i + 1, state.filtered.length); render(); }
     fillSamples();
@@ -216,8 +232,52 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   }
   function saveNote() {
     const r = state.filtered[state.i]; if (!r) return; const d = decisionOf(r) || {};
-    state.local[r.k] = { accept: d.accept || null, notes: $("note").value.trim(), cls: $("cls").value, at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
+    state.local[r.k] = { accept: d.accept || null, notes: $("note").value.trim(), cls: $("cls").value, line: d.line || null, at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
     save(); toast("Saved"); render();
+  }
+  // Measurement-line tool. r.lb = {box: [left, top, right, bottom] of the overlay panel as fractions of the
+  // card picture, side: tile size in pixels, row0/col0: the plane pixel of the tile's top-left}.
+  // Lines are kept in plane pixels [x1, y1, x2, y2] (DP end first), the units remeasure_lines.py reads.
+  const tool = { on: false, pts: [] };
+  const toFrac = (r, x, y) => { const b = r.lb.box, s = r.lb.side;   // plane pixel -> picture fraction
+    return [b[0] + (x - r.lb.col0 + 0.5) / s * (b[2] - b[0]), b[1] + (y - r.lb.row0 + 0.5) / s * (b[3] - b[1])]; };
+  const toPlane = (r, fx, fy) => { const b = r.lb.box, s = r.lb.side;
+    return [r.lb.col0 + (fx - b[0]) / (b[2] - b[0]) * s - 0.5, r.lb.row0 + (fy - b[1]) / (b[3] - b[1]) * s - 0.5]; };
+  function drawLines() {
+    const r = state.filtered[state.i], svg = $("lines"); if (!r || !r.lb) { svg.innerHTML = ""; return; }
+    const d = decisionOf(r); const parts = [];
+    const seg = (l, colour, dash) => { const [a, b] = [toFrac(r, l[0], l[1]), toFrac(r, l[2], l[3])];
+      parts.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${colour}" stroke-width="0.004" ${dash ? 'stroke-dasharray="0.01 0.006"' : ""} vector-effect="non-scaling-stroke" style="stroke-width:3px"/>`); };
+    if (!tool.on && d && Array.isArray(d.line)) seg(d.line, "#2fd6e8", true);
+    if (tool.on) { for (const q of tool.pts) { const f = toFrac(r, q[0], q[1]); parts.push(`<circle cx="${f[0]}" cy="${f[1]}" r="0.004" fill="#2fd6e8"/>`); }
+      if (tool.pts.length === 2) seg([...tool.pts[0], ...tool.pts[1]], "#2fd6e8", false); }
+    svg.innerHTML = parts.join("");
+  }
+  function lineMode(on) {
+    const r = state.filtered[state.i]; tool.on = on && !!(r && r.lb); tool.pts = [];
+    $("stage").classList.toggle("lining", tool.on); $("linebar").hidden = !tool.on;
+    $("linetip").textContent = "Tap the DP, then the PSD, on the overlay panel (the one with the red line).";
+    if (tool.on) {   // bring the overlay panel into view (at 2x zoom it is off to the right)
+      const b = r.lb.box, st = $("stage"), w = $("img").clientWidth, h = $("img").clientHeight;
+      st.scrollTo({ left: Math.max(0, (b[0] + b[2]) / 2 * w - st.clientWidth / 2), top: Math.max(0, (b[1] + b[3]) / 2 * h - st.clientHeight / 2), behavior: "smooth" });
+    }
+    drawLines();
+  }
+  function lineTap(cx, cy) {
+    const r = state.filtered[state.i]; if (!tool.on || !r) return;
+    const box = $("img").getBoundingClientRect(); const fx = (cx - box.left) / box.width, fy = (cy - box.top) / box.height;
+    const b = r.lb.box; if (fx < b[0] || fx > b[2] || fy < b[1] || fy > b[3]) { toast("Tap inside the overlay panel"); return; }
+    if (tool.pts.length === 2) tool.pts = [];
+    tool.pts.push(toPlane(r, fx, fy));
+    $("linetip").textContent = tool.pts.length === 1 ? "Now tap the PSD." : "Save the line, or tap again to start over.";
+    drawLines();
+  }
+  function lineSave(clear) {
+    const r = state.filtered[state.i]; if (!r) return; const d = decisionOf(r) || {};
+    if (!clear && tool.pts.length !== 2) { toast("Tap two points first"); return; }
+    state.local[r.k] = { accept: d.accept || null, notes: d.notes || $("note").value.trim(), cls: d.cls || $("cls").value,
+      line: clear ? "clear" : [...tool.pts[0], ...tool.pts[1]], at: new Date().toISOString(), sample: r.s, id: r.id, n: r.n };
+    save(); toast(clear ? "Your line removed" : "Line saved; it is re-measured on the PC after import"); lineMode(false); render();
   }
   function saveSample() {
     const r = state.filtered[state.i]; if (!r) return;
@@ -225,9 +285,10 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     save(); toast("Dataset notes saved"); ioText();
   }
   function csv() {
-    const rows = [["key", "sample", "synapse_id", "n", "accept", "notes", "at", "cls", "mouse", "genotype"]];
-    for (const [k, d] of Object.entries(state.local)) rows.push([k, d.sample, d.id, d.n, d.accept || "u", d.notes || "", d.at || "", d.cls || "", "", ""]);
-    for (const [s, m] of Object.entries(state.samples)) rows.push([s + "__SAMPLE", s, "", 0, "", m.notes || "", m.at || "", "", m.mouse || "", m.geno || ""]);
+    const rows = [["key", "sample", "synapse_id", "n", "accept", "notes", "at", "cls", "mouse", "genotype", "line"]];
+    const lineText = l => l === "clear" ? "clear" : (l ? l.map(v => v.toFixed(1)).join(" ") : "");
+    for (const [k, d] of Object.entries(state.local)) rows.push([k, d.sample, d.id, d.n, d.accept || "u", d.notes || "", d.at || "", d.cls || "", "", "", lineText(d.line)]);
+    for (const [s, m] of Object.entries(state.samples)) rows.push([s + "__SAMPLE", s, "", 0, "", m.notes || "", m.at || "", "", m.mouse || "", m.geno || "", ""]);
     return rows.map(x => x.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(",")).join("\r\n") + "\r\n";
   }
   function exportCsv() {
@@ -250,8 +311,10 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
         if (k.endsWith("__SAMPLE")) { const s = k.slice(0, -8); const hv = state.samples[s]; if (!(hv && hv.at && at && hv.at >= at)) { state.samples[s] = { mouse: ix("mouse") >= 0 ? c[ix("mouse")] : "", geno: ix("genotype") >= 0 ? c[ix("genotype")] : "", notes: ix("notes") >= 0 ? c[ix("notes")] : "", at: at || new Date().toISOString() }; added++; } continue; }
         const have = state.local[k];
         if (have && have.at && at && have.at >= at) continue;
-        const acc = (c[ix("accept")] || "").toUpperCase(); const [s, id] = k.split("__");
-        state.local[k] = { accept: ["Y", "N", "u"].includes(acc) ? acc : null, notes: ix("notes") >= 0 ? c[ix("notes")] : "", cls: ix("cls") >= 0 ? c[ix("cls")] : "", at: at || new Date().toISOString(), sample: s, id, n: ix("n") >= 0 ? +c[ix("n")] : undefined }; added++; }
+        const up = (c[ix("accept")] || "").trim().toUpperCase(); const acc = up === "U" || up === "?" ? "u" : up; const [s, id] = k.split("__");
+        const lt = ix("line") >= 0 ? (c[ix("line")] || "").trim() : ""; const lv = lt.split(/\s+/).map(Number);
+        const line = lt === "clear" ? "clear" : (lv.length === 4 && lv.every(isFinite) ? lv : null);
+        state.local[k] = { accept: ["Y", "N", "u"].includes(acc) ? acc : null, notes: ix("notes") >= 0 ? c[ix("notes")] : "", cls: ix("cls") >= 0 ? c[ix("cls")] : "", line, at: at || new Date().toISOString(), sample: s, id, n: ix("n") >= 0 ? +c[ix("n")] : undefined }; added++; }
       save(); fillSamples(); applyFilter(true); toast(`Imported ${added} decisions`);
     }; rd.readAsText(file);
   }
@@ -271,6 +334,8 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
   $("saveNote").onclick = saveNote; $("saveSample").onclick = saveSample; $("export").onclick = exportCsv; $("copy").onclick = copyCsv;
   $("importFile").onchange = e => { if (e.target.files[0]) importCsv(e.target.files[0]); e.target.value = ""; };
   $("zoomLink").onclick = e => { e.preventDefault(); setZoom(!$("stage").classList.contains("zoom")); };
+  $("lineLink").onclick = e => { e.preventDefault(); lineMode(!tool.on); };
+  $("lineSave").onclick = () => lineSave(false); $("lineClear").onclick = () => lineSave(true); $("lineCancel").onclick = () => lineMode(false);
   for (const id of ["fUnrev", "fAb", "fIn"]) $(id).onclick = () => { const b = $(id); b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true"); applyFilter(false); };
   $("sample").onchange = () => applyFilter(false); $("order").onchange = () => applyFilter(true);
 $("show").onchange = () => applyFilter(true);
@@ -279,6 +344,7 @@ $("show").onchange = () => applyFilter(true);
   const stage = $("stage"); let sx = null, sy = null, lastTap = 0;
   const began = (x, y) => { sx = x; sy = y; };
   const ended = (x, y) => { if (sx === null) return; const dx = x - sx, dy = y - sy; sx = null;
+    if (tool.on) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) lineTap(x, y); return; }
     const zoomed = stage.classList.contains("zoom");
     if (Math.abs(dx) > (zoomed ? 160 : 70) && Math.abs(dy) < 70 && Math.abs(dx) > 2 * Math.abs(dy)) { decide(dx > 0 ? "Y" : "N"); return; }
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) { const now = Date.now(); if (now - lastTap < 320) { setZoom(!stage.classList.contains("zoom")); lastTap = 0; } else lastTap = now; } };

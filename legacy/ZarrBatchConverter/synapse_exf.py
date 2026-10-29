@@ -113,7 +113,8 @@ ANTIBODIES = {
 COLUMNS = [
     ("#", 6), ("Sample", 40), ("Slice", 7), ("X (px)", 9), ("Y (px)", 9), ("Antibody", 12), ("AB Signal (σ)", 13),
     ("AB+", 6), ("AB2 Signal (σ)", 13), ("AB2+", 6), ("AB1–AB2 (µm, as imaged)", 12), ("DP–PSD (µm, as imaged)", 14), ("ExF (peak to peak)", 12), ("ExF (Gaussian fit)", 12), ("In 16–24", 9), ("Class", 18), ("PSD Named By", 11), ("Example Score", 9), ("Synapse ID", 22), ("Fit R²", 8), ("Dip", 7),
-    ("Peak Ratio", 10), ("Accept", 9), ("Notes", 40), ("Reviewed Class", 18), ("Picture", 12), ("Neuroglancer", 13),
+    ("Peak Ratio", 10), ("Accept", 9), ("Notes", 40), ("Reviewed Class", 18),
+    ("Manual Line", 24), ("P2P Manual (µm)", 12), ("ExF (manual line)", 12), ("Picture", 12), ("Neuroglancer", 13),
 ]
 HEADERS = [c[0] for c in COLUMNS]
 
@@ -687,6 +688,18 @@ def measured_line(ax, h, half, side_in):
                 path_effects=[patheffects.withStroke(linewidth=2, foreground="black")])
 
 
+def panel_box(fig, ax, pad=0.1):
+    """Where an axes sits in the picture savefig(bbox_inches="tight") writes, as fractions of its
+    width and height from the top left: [left, top, right, bottom]. pad is savefig's pad_inches."""
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    tight = fig.get_tightbbox(renderer)                                   # inches
+    a = ax.get_window_extent(renderer).transformed(fig.dpi_scale_trans.inverted())
+    x0, y0, x1, y1 = tight.x0 - pad, tight.y0 - pad, tight.x1 + pad, tight.y1 + pad
+    w, hgt = x1 - x0, y1 - y0
+    return [round((a.x0 - x0) / w, 5), round((y1 - a.y1) / hgt, 5), round((a.x1 - x0) / w, 5), round((y1 - a.y0) / hgt, 5)]
+
+
 def card(png, number, name, h, tile, um, pan_ch, ab_ch, exf=None):
     """One synapse: pan, antibody, overlay, and the profile with its fit. exf is the sample's
     expansion factor, for the scale bar; without one the synapse's own is used."""
@@ -750,7 +763,9 @@ def card(png, number, name, h, tile, um, pan_ch, ab_ch, exf=None):
     fig.text(edge / width, 1 - 0.06 / height, f"#{number}   {name}   Slice {h['z']}   x {h['col']:.0f}, y {h['row']:.0f}{sign}"
              f"   ·   {h['class']} (PSD named by {h['psd_by']})\n{bar_words(length, exf or h['exf'])}",
              color=eff.INK, fontsize=10, ha="left", va="top", linespacing=1.5)
+    box = panel_box(fig, axes[n - 1])     # the panel the measured line is drawn on
     eff.save(fig, png, FIGURE_DPI)
+    return box
 
 
 def contact_sheet(png, name, shown, um, ab_ch, exf=None):
@@ -827,8 +842,11 @@ def summarise(values):
     return f"{v.mean():.1f} ± {v.std(ddof=1) if len(v) > 1 else 0:.1f}  (median {np.median(v):.1f}, n = {len(v)})"
 
 
+MANUAL_COLUMNS = ("Manual Line", "P2P Manual (µm)", "ExF (manual line)")   # set by the review page's measurement-line tool and remeasure_lines.py
+
+
 def read_decisions(path):
-    """What was typed in the log: {(sample, slice): [(x, y, accept, notes, reviewed class)]}."""
+    """What was typed in the log: {(sample, slice): [(x, y, accept, notes, reviewed class, {manual-line columns})]}."""
     kept = {}
     if not path.is_file():
         return kept
@@ -839,15 +857,16 @@ def read_decisions(path):
             continue
         kept.setdefault((row[cols["Sample"]], row[cols["Slice"]]), []).append(
             (row[cols["X (px)"]], row[cols["Y (px)"]], row[cols["Accept"]], row[cols["Notes"]],
-             row[cols["Reviewed Class"]] if "Reviewed Class" in cols else None))
+             row[cols["Reviewed Class"]] if "Reviewed Class" in cols else None,
+             {k: row[cols[k]] for k in MANUAL_COLUMNS if k in cols and row[cols[k]] not in (None, "")}))
     return kept
 
 
 def decision_for(kept, sample, h, radius=8):
-    for x, y, accept, notes, reviewed in kept.get((sample, h["z"]), []):
+    for x, y, accept, notes, reviewed, manual in kept.get((sample, h["z"]), []):
         if abs(x - h["col"]) <= radius and abs(y - h["row"]) <= radius:
-            return accept, notes, reviewed
-    return None, None, None
+            return accept, notes, reviewed, manual
+    return None, None, None, {}
 
 
 METHOD = [
@@ -1003,7 +1022,7 @@ def write_log(path, rows, summary):
             if header in ("Picture", "Neuroglancer") and value:
                 cell.value, cell.hyperlink = "open", value
                 cell.font = Font(color="0563C1", underline="single")
-            elif header in ("Accept", "Notes", "Reviewed Class"):
+            elif header in ("Accept", "Notes", "Reviewed Class") + MANUAL_COLUMNS:
                 cell.fill = mine
     choice = DataValidation(type="list", formula1='"Y,N"', allow_blank=True)
     ws.add_data_validation(choice)
@@ -1165,6 +1184,7 @@ def run(args):
                              [h for h in hits if h["ab_pos"]], hits, is_synaptic).get("ExF")
         for stale in folder.glob(f"{name}_synapse-*.png"):    # pictures of an earlier run, numbered differently
             stale.unlink()
+        card_boxes = {}
         from scipy import ndimage
         for number, h in enumerate(logged, start=1):
             r, c = int(round(h["row"])), int(round(h["col"]))
@@ -1184,8 +1204,10 @@ def run(args):
                 tile.update(ab2=crop(ab2, rr, cc, half), ab2_lo=middle + sd, ab2_hi=middle + max(12 * sd, 1),
                             ab2_colour=eff.colour_of(ab2_ch), ab2_label=ab2_ch["label"])
             png = folder / f"{name}_synapse-{number:03d}_z{h['z']:04d}_x{round(h['col']):05d}_y{round(h['row']):05d}.png"
-            card(png, number, name, h, tile, um, channels[pan], ab_ch, bar_exf)
-            accept, notes, reviewed = decision_for(kept, name, h)
+            box = card(png, number, name, h, tile, um, channels[pan], ab_ch, bar_exf)
+            # for the review page's line tool: tile pixel (i, j) is plane pixel (row0 + i, col0 + j)
+            card_boxes[png.stem] = {"box": box, "side": 2 * half + 1, "row0": r - half, "col0": c - half, "z": h["z"]}
+            accept, notes, reviewed, manual = decision_for(kept, name, h)
             decisions.append(accept)
             shown.append((number, h, tile))
             rows.append({
@@ -1199,9 +1221,10 @@ def run(args):
                 "Fit R²": round(h["r2"], 3), "Dip": round(h["dip"], 2), "Peak Ratio": round(h["ratio"], 2),
                 "Class": h["class"], "PSD Named By": h["psd_by"], "Example Score": round(h["example"], 2),
                 "Synapse ID": f"z{h['z']:04d}_x{round(h['col']):05d}_y{round(h['row']):05d}",
-                "Accept": accept, "Notes": notes, "Reviewed Class": reviewed, "Picture": str(png),
+                "Accept": accept, "Notes": notes, "Reviewed Class": reviewed, **manual, "Picture": str(png),
                 "Neuroglancer": synapse_link(out_root, name, number, h, write=not args.no_links),
             })
+        (folder / f"{name}_cards.json").write_text(json.dumps({"um": um, "cards": card_boxes}, indent=0), encoding="utf-8")
         if shown:
             contact_sheet(folder / f"{name}_synapses_contact-sheet.png", name, shown, um, ab_ch, bar_exf)
         every = [h["exf"] for h in hits]

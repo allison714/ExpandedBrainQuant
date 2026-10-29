@@ -76,7 +76,9 @@ def rows_from_log():
              "ng": ng_t[len(NG_PREFIX):] if ng_t.startswith(NG_PREFIX) else None,
              "acc": (str(v[ci["Accept"]]).strip().upper() if v[ci["Accept"]] else None),
              "notes": (str(v[ci["Notes"]]).strip() if v[ci["Notes"]] else None),
-             "rcls": (str(v[ci["Reviewed Class"]]).strip() if "Reviewed Class" in ci and v[ci["Reviewed Class"]] else None)}
+             "rcls": (str(v[ci["Reviewed Class"]]).strip() if "Reviewed Class" in ci and v[ci["Reviewed Class"]] else None),
+             "ml": manual_line(v[ci["Manual Line"]]) if "Manual Line" in ci else None,
+             "mexf": num(v[ci["ExF (manual line)"]]) if "ExF (manual line)" in ci else None}
         out.append({k: x for k, x in d.items() if x not in (None, False, "")} | {"abp": d["abp"], "ab2p": d["ab2p"], "in": d["in"]})
     return out
 
@@ -112,6 +114,31 @@ def acquisition_dates(names):
             except ValueError:
                 pass
     return dates
+
+
+def manual_line(text):
+    """'x1 y1 x2 y2' (plane pixels, DP end first) from the log, as four numbers, else None."""
+    try:
+        vals = [float(x) for x in str(text or "").replace(",", " ").split()]
+    except ValueError:
+        return None
+    return vals if len(vals) == 4 else None
+
+
+def with_card_boxes(rows):
+    """Where each card's overlay panel is (from <sample>_cards.json, written by synapse_exf.py), for the
+    page's measurement-line tool. Cards drawn before 2026-10-29 have no box and get no tool."""
+    boxes = {}
+    for r in rows:
+        if r["s"] not in boxes:
+            try:
+                boxes[r["s"]] = json.loads((EXF / r["s"] / f"{r['s']}_cards.json").read_text(encoding="utf-8"))["cards"]
+            except (OSError, ValueError, KeyError):
+                boxes[r["s"]] = {}
+        b = boxes[r["s"]].get(r["img"])
+        if b:
+            r["lb"] = {"box": b["box"], "side": b["side"], "row0": b["row0"], "col0": b["col0"]}
+    return rows
 
 
 def with_manifest(rows):
@@ -150,7 +177,7 @@ def main():
         print("No card JPEGs yet: running review_thumbs.py first.")
         import review_thumbs
         review_thumbs.main()
-    rows = with_manifest(rows_from_log())
+    rows = with_card_boxes(with_manifest(rows_from_log()))
     decided = sum(1 for r in rows if r.get("acc") in ("Y", "N"))
     print(f"{len(rows)} logged synapses from {len({r['s'] for r in rows})} samples; {decided} already accepted or rejected in the log.")
 
