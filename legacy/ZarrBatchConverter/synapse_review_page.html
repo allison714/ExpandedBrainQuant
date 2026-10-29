@@ -74,7 +74,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     <select id="sample" aria-label="Sample"><option>All samples</option></select>
     <button class="toggle" id="fUnrev" aria-pressed="true">Unreviewed only</button>
     <select id="show" aria-label="Which decisions to show" title="Revisit what you decided: unsure, rejected or accepted synapses">
-      <option value="all">Show: all</option><option value="none">Show: undecided</option><option value="u">Show: unsure</option>
+      <option value="none" selected>Show: undecided</option><option value="all">Show: all</option><option value="u">Show: unsure</option>
       <option value="N">Show: rejected</option><option value="Y">Show: accepted</option></select>
     <button class="toggle" id="fAb" aria-pressed="false">Antibody-positive</button>
     <button class="toggle" id="fIn" aria-pressed="false">ExF 16 to 24</button>
@@ -294,7 +294,6 @@ $("show").onchange = () => applyFilter(true);
   if (want && [...$("sample").options].some(o => o.value === want)) $("sample").value = want;
   if (saved.order) $("order").value = saved.order;
   if (saved.unrev) $("fUnrev").setAttribute("aria-pressed", saved.unrev);
-  if (saved.show && [...$("show").options].some(o => o.value === saved.show)) $("show").value = saved.show;
   if (saved.ab) $("fAb").setAttribute("aria-pressed", saved.ab); if (saved.inr) $("fIn").setAttribute("aria-pressed", saved.inr);
   if (saved.zoom === false) setZoom(false);
   applyFilter(false);

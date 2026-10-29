@@ -321,6 +321,7 @@ def collect(base, year=None, image_list=None, synapse_folder=None, root=""):
             "date": date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else (str(date) if date else ""),
             "channels": m.get("Channels (laser)") or "", "microscope": m.get("Microscope") or "",
             "setup": setup, "xy_um": xy_um, "z_um": z_um, "nz": nz,
+            "voxels": (int(planes.group(1)) * int(planes.group(2)) * int(planes.group(3))) if planes else 0,
             "volume": bool(nz and nz > 2 and z_um is not None and z_um <= 2.0),   # a z-stack fine enough for 3D work
             "reviewed": REVIEWED.get(name, 0),
             "objective": m.get("Objective") or "", "size": m.get("Size X × Y × Z") or "",
@@ -422,7 +423,8 @@ h3 { margin:26px 0 10px; font-size:14px; font-weight:600; color:var(--dim); bord
   <select id="objective"><option value="">All objectives</option></select>
   <select id="genotype"><option value="">All genotypes</option></select>
   <select id="sort">
-    <option value="density" selected>Sort: antibody density, highest first</option>
+    <option value="ready" selected>Sort: review-ready volumes, then antibody density, then size</option>
+    <option value="density">Sort: antibody density, highest first</option>
     <option value="name">Sort: name</option><option value="date">Sort: date, newest first</option><option value="rating">Sort: rating</option>
     <option value="exf">Sort: expansion factor</option><option value="res">Sort: resolution, finest first</option>
     <option value="enrich">Sort: antibody on synapses (enrichment)</option>
@@ -516,7 +518,10 @@ function draw() {
   shown = DATA.filter(s => inYear(s) && inSetup(s) && (withFlat || !flat(s)) && (withOthers || !s.other) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
     (!type || s.type === type) && (!rated || s.rating != null) && (!measured || s.exf != null) &&
     (!q || q.split(/\s+/).every(w => (s.name + " " + s.channels + " " + s.notes + " " + s.type + " " + s.date + " " + s.antibody + " " + (s.combo || "") + " " + (s.genotype || "") + " " + (s.chips || []).map(c => c.text).join(" ")).toLowerCase().includes(w))));
-  const by = { name:(a,b)=>a.name.localeCompare(b.name), date:(a,b)=>b.date.localeCompare(a.date),
+  // review-ready: a volume (z step ≤ 2 µm) with synapses logged for the review page; then denser antibody labelling; then the bigger volume
+  const ready = s => (s.volume && s.synapses ? 0 : 1);
+  const by = { ready:(a,b)=>ready(a)-ready(b) || (b.density ?? -1)-(a.density ?? -1) || (b.voxels || 0)-(a.voxels || 0),
+               name:(a,b)=>a.name.localeCompare(b.name), date:(a,b)=>b.date.localeCompare(a.date),
                density:(a,b)=>(b.density ?? -1)-(a.density ?? -1), rating:(a,b)=>(b.rating ?? -1)-(a.rating ?? -1),
                exf:(a,b)=>(b.exf ?? -1)-(a.exf ?? -1), res:(a,b)=>(a.res ?? 1e9)-(b.res ?? 1e9),
                enrich:(a,b)=>(b.ab_enrich ?? -1)-(a.ab_enrich ?? -1), labelled:(a,b)=>(b.ab_labelled ?? -1)-(a.ab_labelled ?? -1) }[sort];
