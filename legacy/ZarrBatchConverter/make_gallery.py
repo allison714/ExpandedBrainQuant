@@ -620,9 +620,6 @@ if (location.hash) {   // opened with a sample's name after '#': go straight to 
 """
 
 
-SERVER_THUMB_PX = 300     # in the server copy: an ordinary picture
-SERVER_SHEET_PX = 1000    # ...a contact sheet, structure figure or nuclei picture
-SERVER_SYNAPSE_PX = 360   # ...one synapse's panel
 # What the server copy needs on top of the ordinary page: nothing on it links to a file on
 # this PC, so links with nowhere to go are hidden and do nothing.
 SERVER_EXTRA = """<style>a.btn[href=""], a.pic[href=""] { display:none; } a[href=""] { cursor:default; }
@@ -631,13 +628,12 @@ SERVER_EXTRA = """<style>a.btn[href=""], a.pic[href=""] { display:none; } a[href
 <script>
 document.addEventListener("click", e => { if (e.target.closest('a[href=""]')) e.preventDefault(); }, true);
 document.querySelector("header").insertAdjacentHTML("afterend", `<details id="servernote"><summary><b>Server copy.</b>
-  The pictures inside this page are reduced; click any of them for the full-size file on the server. Click here for details.</summary>
-  <b>Inside this page:</b> reduced copies of every picture (ordinary images 300 pixels, contact sheets and figures 1000, single synapses 360),
-  so it opens quickly from anywhere; search, filters, sorting and every sample's details work without anything else.<br>
-  <b>On the server, one click away:</b> the full-size pictures (click a picture, or "image" under a synapse); "Open folder" and "Synapse images"
-  open the sample's folders there, with the turning 3D nucleus GIFs, the Synapse Log workbook, the per-sample CSV files and the reports;
-  "Open in Neuroglancer" and clicking a synapse open the image data.<br>
-  <b>Kept up to date by:</b> Make_Gallery_Protected.bat for this page, Make_Gallery.bat with --mirror for the folders; the update time is in the top bar.
+  Pictures load from the server folders; click any of them for the full-size file. Click here for details.</summary>
+  <b>Pictures:</b> the grid shows each sample's thumbnail and a sample's page its larger copies (synapse strips 1100 pixels wide), all read from
+  the server folders as you scroll, so a sample's page takes a moment on a slow connection; click a picture, or "image" under a synapse, for the full-size file.<br>
+  <b>Also on the server:</b> "Open folder" and "Synapse images" open the sample's folders there, with the turning 3D nucleus GIFs, the Synapse Log
+  workbook, the per-sample CSV files and the reports; "Open in Neuroglancer" and clicking a synapse open the image data.<br>
+  <b>Kept up to date by:</b> Make_Gallery_Protected.bat, which rebuilds this page and refreshes the folders; the update time is in the top bar.
 </details>`);
 </script>
 </body>"""
@@ -647,29 +643,13 @@ def server_copy(base, samples, password=None, out=None):
     """The gallery as ONE file in the zarr folder on the lab server, so that anyone who can reach
     the server can open it, from the drive or from its web address, with nothing else installed.
 
-    Every picture is carried inside the page as a small JPEG, and links to its full-size file in
-    the mirror (see mirror()) at the server's web address, as do the "Open folder" and "Synapse
-    images" buttons; a sample of another year already links to its own server folder. The
-    Neuroglancer links work as usual, since they already point at the server. With a password
-    the file holds only the encrypted page (see lock). Returns (path, address to share).
+    The pictures are the same thumbnails the PC gallery shows, loaded from the mirror (see
+    mirror()) at the server's web address, and each links to its full-size file there, as do the
+    "Open folder" and "Synapse images" buttons; a sample of another year already links to its own
+    server folder. (Until 2026-10-28 the pictures were reduced copies embedded in the page, too
+    small to read.) The Neuroglancer links work as usual, since they already point at the server.
+    With a password the file holds only the encrypted page (see lock). Returns (path, address).
     """
-    import base64
-    import io
-
-    from PIL import Image
-
-    def packed(relative, px, quality, sample=None):
-        root, local = (sample or {}).get("root", ""), Path((sample or {}).get("_base") or base)
-        if root and relative.startswith(root):
-            relative = relative[len(root):]
-        try:
-            img = Image.open(local / urllib.parse.unquote(relative)).convert("RGB")
-        except Exception:
-            return ""
-        img.thumbnail((px, px))
-        buffer = io.BytesIO()
-        img.save(buffer, "JPEG", quality=quality, optimize=True)
-        return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
     # this year's folders as mirrored on the server; relative addresses in the page resolve against it
     mirror_root = core.share_url_for(Path(core.DEFAULT_OUT).parent / MIRROR_FOLDER / base.name).rstrip("/") + "/"
@@ -680,16 +660,9 @@ def server_copy(base, samples, password=None, out=None):
         sample = dict(sample, folder=absolute(sample["folder"]), synapse_folder=absolute(sample["synapse_folder"]),
                       review=f"synapse_review.html?sample={urllib.parse.quote(sample['name'])}"
                       if sample.get("synapses") and not sample.get("root") else "")
-        pictures = []
-        for picture in sample["pictures"]:
-            synapse = picture.get("group") == "synapse"
-            px, quality = ((SERVER_SYNAPSE_PX, 55) if picture.get("number") else (SERVER_SHEET_PX, 65)) if synapse else (SERVER_THUMB_PX, 70)
-            pictures.append(dict(picture, thumb=packed(picture["thumb"], px, quality, sample), file=absolute(picture["file"])))
-        sample["pictures"] = pictures
-        sample["card"] = packed(sample["card"], SERVER_THUMB_PX, 70, sample)
+        sample["pictures"] = [dict(picture, thumb=absolute(picture["thumb"]), file=absolute(picture["file"])) for picture in sample["pictures"]]
+        sample["card"] = absolute(sample["card"])
         carried.append(sample)
-        if n % 20 == 0:
-            print(f"   {n}/{len(samples)} samples packed")
     data = public_json(carried)
     title = GALLERY_TITLE + " (server copy)"
     page = PAGE.replace("__DATA__", data).replace("__BUILT__", html.escape(__import__("provenance").stamp(Path(__file__))))
@@ -863,15 +836,13 @@ def main():
             print(f"Server copy: {copy}  ({copy.stat().st_size / 1e6:.0f} MB){'  PASSWORD PROTECTED' if password else ''}\nShare: {shared}")
         else:
             print(f"\nServer copy not made: cannot reach {core.DEFAULT_OUT}")
-    if "--mirror" in sys.argv and Path(core.DEFAULT_OUT).is_dir():
-        if password:
-            # the mirror is the plain folders with full-size pictures: it would put back in the open what the
-            # password is meant to keep out, so a protected run leaves it alone (an earlier mirror stays as it was)
-            print("\nMirror NOT updated: it is not password protected and would publish the full-size pictures.")
-        else:
-            print("\nMirroring the gallery's folders to the server (only what changed is sent)...")
-            shared = mirror(base)
-            print(f"Full gallery on the server: {shared}")
+    if ("--mirror" in sys.argv or password) and Path(core.DEFAULT_OUT).is_dir():
+        # the server page reads its pictures from the mirrored folders, so a protected build refreshes them
+        # too; the folders themselves are open (the user's decision, 2026-10-28), only the page is locked
+        print("\nMirroring the gallery's folders to the server (only what changed is sent)...")
+        mirrored = mirror(base)
+        print(f"Full gallery folders on the server: {mirrored}")
+        shared = shared or mirrored
     if shared and to_clipboard(shared):
         print("(The link to share is on the clipboard: paste it with Ctrl+V.)")
     return out
