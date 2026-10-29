@@ -146,6 +146,7 @@ def read_synapse_links(folder):
 
 
 HIDDEN = ("tetraspec", "pff")   # samples left out of the gallery: bead images, and the PFF samples
+OTHERS = ("SZ_",)               # another lab member's samples (by name prefix): kept for comparison, shown only when asked
 
 
 def synapse_pictures(base, name):
@@ -314,6 +315,7 @@ def collect(base, year=None, image_list=None, synapse_folder=None, root=""):
         samples.append({
             **labelling(name, checked.get(name, [])),
             "year": year or "", "root": root, "_base": str(base),
+            "other": next((pre.rstrip("_") for pre in OTHERS if name.upper().startswith(pre.upper())), ""),
             "name": name, "card": card["thumb"], "pictures": pictures, "synapses": len([p for p in synapses if p["number"]]),
             "type": next((r.get("Type") for r in logged.get(name, []) if r.get("Type")), ""),
             "date": date.strftime("%Y-%m-%d") if hasattr(date, "strftime") else (str(date) if date else ""),
@@ -429,6 +431,7 @@ h3 { margin:26px 0 10px; font-size:14px; font-weight:600; color:var(--dim); bord
   <label><input id="rated" type="checkbox"> rated only</label>
   <label><input id="measured" type="checkbox"> with expansion factor only</label>
   <label title="Single tiles and flat montages (one or two planes). Off: only z-stacks are shown. On: they are listed after the stacks."><input id="flat" type="checkbox"> single-plane images</label>
+  <label title="Samples imaged by another lab member (names starting SZ), kept here for comparison."><input id="others" type="checkbox"> other members' samples (SZ)</label>
   <span id="count"></span>
 </header>
 <nav id="tabs"></nav>
@@ -493,7 +496,7 @@ let TAB = new URLSearchParams(location.search).get("tab") || "";
 if (!TABS.some(t => t[0] === TAB)) TAB = "";
 function tabs() {
   $("tabs").innerHTML = TABS.map(([key, text]) => {
-    const n = DATA.filter(s => inYear(s) && ($("flat").checked || s.nz > 2) && (!key || s.label_kind === key)).length;
+    const n = DATA.filter(s => inYear(s) && ($("flat").checked || s.nz > 2) && ($("others").checked || !s.other) && (!key || s.label_kind === key)).length;
     return n || !key ? `<button data-tab="${key}" class="${key === TAB ? "on" : ""}" title="${esc(HELP["tab_" + key] || "Every sample of the chosen year.")}">${text}<span>${n}</span></button>` : "";
   }).join("");
 }
@@ -509,8 +512,8 @@ let shown = [];
 function draw() {
   const q = $("q").value.trim().toLowerCase(), type = $("type").value, sort = $("sort").value, rated = $("rated").checked;
   const measured = $("measured").checked, objective = $("objective").value, genotype = $("genotype").value;
-  const flat = s => !(s.nz > 2), withFlat = $("flat").checked;
-  shown = DATA.filter(s => inYear(s) && inSetup(s) && (withFlat || !flat(s)) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
+  const flat = s => !(s.nz > 2), withFlat = $("flat").checked, withOthers = $("others").checked;
+  shown = DATA.filter(s => inYear(s) && inSetup(s) && (withFlat || !flat(s)) && (withOthers || !s.other) && (!TAB || s.label_kind === TAB) && (!objective || s.objective === objective) && (!genotype || s.genotype === genotype) &&
     (!type || s.type === type) && (!rated || s.rating != null) && (!measured || s.exf != null) &&
     (!q || q.split(/\s+/).every(w => (s.name + " " + s.channels + " " + s.notes + " " + s.type + " " + s.date + " " + s.antibody + " " + (s.combo || "") + " " + (s.genotype || "") + " " + (s.chips || []).map(c => c.text).join(" ")).toLowerCase().includes(w))));
   const by = { name:(a,b)=>a.name.localeCompare(b.name), date:(a,b)=>b.date.localeCompare(a.date),
@@ -526,7 +529,7 @@ function draw() {
       ? `<div class="group yr">${esc(s.year || "year not known")} · ${shown.filter(x => x.year === s.year).length}</div>` : "") +
     (grouped() && (i === 0 || shown[i - 1].combo !== s.combo || shown[i - 1].year !== s.year)
       ? `<div class="group">${esc(s.combo || "combination not known")} · ${shown.filter(x => x.combo === s.combo && x.year === s.year).length}</div>` : "");
-  $("count").textContent = `${shown.length} of ${DATA.filter(inYear).length} samples · updated ${UPDATED}`;
+  $("count").textContent = `${shown.length} of ${DATA.filter(s => inYear(s) && (withFlat || !flat(s)) && (withOthers || !s.other)).length} samples · updated ${UPDATED}`;
   $("count").title = BUILT;
   metrics(shown);
   $("grid").innerHTML = shown.length ? shown.map((s,i) => `${heading(s, i)}
@@ -606,7 +609,7 @@ document.addEventListener("keydown", e => {
   const i = +$("detail").dataset.i;
   if (e.key === "Escape") close_(); else if (e.key === "ArrowRight") open_(Math.min(shown.length - 1, i + 1)); else if (e.key === "ArrowLeft") open_(Math.max(0, i - 1));
 });
-["q","type","objective","genotype","sort","rated","measured","setup","flat"].forEach(id => $(id).addEventListener("input", draw));
+["q","type","objective","genotype","sort","rated","measured","setup","flat","others"].forEach(id => $(id).addEventListener("input", draw));
 tabs();
 draw();
 if (location.hash) {   // opened with a sample's name after '#': go straight to it
@@ -633,7 +636,7 @@ document.querySelector("header").insertAdjacentHTML("afterend", `<details id="se
   so it opens quickly from anywhere; search, filters, sorting and every sample's details work without anything else.<br>
   <b>On the server, one click away:</b> the full-size pictures (click a picture, or "image" under a synapse); "Open folder" and "Synapse images"
   open the sample's folders there, with the turning 3D nucleus GIFs, the Synapse Log workbook, the per-sample CSV files and the reports;
-  "Open in Neuroglancer" and clicking a synapse open the image data. <a href="__MIRROR__" target="_blank" rel="noopener">The folders</a> are public; only this page needs the password.<br>
+  "Open in Neuroglancer" and clicking a synapse open the image data.<br>
   <b>Kept up to date by:</b> Make_Gallery_Protected.bat for this page, Make_Gallery.bat with --mirror for the folders; the update time is in the top bar.
 </details>`);
 </script>
