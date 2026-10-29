@@ -115,7 +115,7 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
     <div class="sample"><h3>This dataset</h3><div class="row">
       <input id="mouse" placeholder="Mouse (e.g. WT4, KO1b)" maxlength="40"><select id="geno" aria-label="Genotype"><option value="">genotype</option><option>WT</option><option>KO</option><option>HET</option><option>unknown</option></select>
       <input id="snotes" placeholder="Notes about this dataset (staining, imaging, what to re-check)" maxlength="500"><button id="saveSample">Save dataset notes</button></div></div>
-    <p class="hint">Swipe right or press Y to accept, swipe left or N to reject, U for unsure, Backspace to go back, right arrow to skip. Double-tap the card to zoom.</p>
+    <p class="hint">Swipe right or press Y to accept, swipe left or N to reject (swipes work at Zoom 1x; zoomed in, use the buttons), U for unsure, Backspace to go back, right arrow to skip. Double-tap the card to zoom.</p>
   </div>
   <div class="io">
     <span id="ioText"></span>
@@ -341,13 +341,16 @@ footer .yes small, footer .no small { color:inherit; opacity:.8; } footer button
 $("show").onchange = () => applyFilter(true);
   // Swipe and double-tap. Touch events are used on phones (Android cancels pointer events once it decides a
   // finger is scrolling); mouse pointer events on a desktop.
-  const stage = $("stage"); let sx = null, sy = null, lastTap = 0;
-  const began = (x, y) => { sx = x; sy = y; };
+  const stage = $("stage"); let sx = null, sy = null, lastTap = 0, sl = 0, stp = 0;
+  // where the zoomed picture was scrolled when the finger went down: a drag that scrolls it is a scroll, never a swipe
+  const began = (x, y) => { sx = x; sy = y; sl = stage.scrollLeft; stp = stage.scrollTop; };
   const ended = (x, y) => { if (sx === null) return; const dx = x - sx, dy = y - sy; sx = null;
+    const scrolled = Math.abs(stage.scrollLeft - sl) > 4 || Math.abs(stage.scrollTop - stp) > 4;
+    const wide = stage.scrollWidth > stage.clientWidth + 4;   // a zoomed picture wider than the screen is for looking: decide with the buttons
     if (tool.on) { if (Math.abs(dx) < 10 && Math.abs(dy) < 10) lineTap(x, y); return; }
     const zoomed = stage.classList.contains("zoom");
-    if (Math.abs(dx) > (zoomed ? 160 : 70) && Math.abs(dy) < 70 && Math.abs(dx) > 2 * Math.abs(dy)) { decide(dx > 0 ? "Y" : "N"); return; }
-    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) { const now = Date.now(); if (now - lastTap < 320) { setZoom(!stage.classList.contains("zoom")); lastTap = 0; } else lastTap = now; } };
+    if (!scrolled && !wide && Math.abs(dx) > (zoomed ? 160 : 70) && Math.abs(dy) < 70 && Math.abs(dx) > 2 * Math.abs(dy)) { decide(dx > 0 ? "Y" : "N"); return; }
+    if (!scrolled && Math.abs(dx) < 10 && Math.abs(dy) < 10) { const now = Date.now(); if (now - lastTap < 320) { setZoom(!stage.classList.contains("zoom")); lastTap = 0; } else lastTap = now; } };
   stage.addEventListener("touchstart", e => { if (e.touches.length === 1) began(e.touches[0].clientX, e.touches[0].clientY); else sx = null; }, { passive: true });
   stage.addEventListener("touchend", e => { if (e.changedTouches.length === 1) ended(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: true });
   stage.addEventListener("touchcancel", () => { sx = null; }, { passive: true });
