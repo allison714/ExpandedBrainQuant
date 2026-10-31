@@ -4,7 +4,7 @@ Dates are when the change landed on the lab's analysis PC; the repository snapsh
 
 ## 0.1.0 - 2026-10-28
 
-First tagged release. Repository to be renamed pan-ExM Gallery (was ExpandedBrainQuant).
+First tagged release. On 2026-10-31 the repository moved to the Kuan Lab organization as kuan-lab/panexm-gallery (created as allison714/ExpandedBrainQuant; the old address redirects).
 
 - Provenance: every Synapse Log carries a "Produced by" line in its Method sheet (tool, version, code hash, run time, host) and the gallery footer carries the same stamp (`provenance.py`).
 - Golden regression: two per-sample CSVs and the full log of 2026-10-28 frozen in `tests/golden/`; `scripts/golden_check.py` re-runs the detector and compares.

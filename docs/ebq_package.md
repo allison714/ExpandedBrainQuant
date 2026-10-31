@@ -1,6 +1,6 @@
 # ebq — 3D analysis of pan-ExM volumes
 
-The successor to the 2D tools in [ExpandedBrainQuant](https://github.com/allison714/ExpandedBrainQuant): the same DP–PSD expansion-factor measurement (M'Saad, Cairns *et al.*, Nat. Biotechnol. 2025), but in 3D, on any microscope, driven by a dataset manifest instead of file-name guesses.
+The successor to the 2D tools in [pan-ExM Gallery](https://github.com/kuan-lab/panexm-gallery): the same DP–PSD expansion-factor measurement (M'Saad, Cairns *et al.*, Nat. Biotechnol. 2025), but in 3D, on any microscope, driven by a dataset manifest instead of file-name guesses.
 
 Status (2026-10-13): working on synthetic data and on the 260618 pan-ASLM volume; not yet validated against hand measurements.
 

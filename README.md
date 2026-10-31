@@ -4,7 +4,7 @@ Browse, review and quantify pan-expansion microscopy (pan-ExM) brain volumes: co
 
 Built in the Kuan and Bewersdorf Labs at Yale for the Shank2 project. The method follows M'Saad, Cairns et al., *Nature Biotechnology* 2025 ([doi:10.1038/s41587-025-02905-4](https://doi.org/10.1038/s41587-025-02905-4)); what was taken from the paper and what was written here is set out in [legacy/ExF_Quantification/METHODS_AND_CREDITS.md](legacy/ExF_Quantification/METHODS_AND_CREDITS.md).
 
-> Repository name: this repository was created as **ExpandedBrainQuant** and is being renamed **pan-ExM Gallery**; GitHub redirects the old address.
+> Repository home: github.com/kuan-lab/panexm-gallery (the Kuan Lab organization) since 2026-10-31. It was created as allison714/ExpandedBrainQuant; GitHub redirects the old address.
 
 ## Two layers
 

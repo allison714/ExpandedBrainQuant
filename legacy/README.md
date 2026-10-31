@@ -1,4 +1,6 @@
-# ExpandedBrainQuant
+# pan-ExM Gallery: the 2026 Windows tools (legacy snapshot)
+
+This folder is the snapshot of `Desktop\ZarrBatchConverter` on KuanLabWorkstation. The repository was created as ExpandedBrainQuant.
 
 Quantification of pan-expansion-microscopy brain volumes. This repository holds the Windows tools used in 2026 for pan-ExM (pan-expansion microscopy) image data in the Kuan Lab: convert microscope files to OME-Zarr on the lab's Neuroglancer server, keep an Excel image list with one-click viewer links, export QC screenshots and a browsable gallery, and measure the expansion factor and antibody labelling from the synapses in the pan stain.
 

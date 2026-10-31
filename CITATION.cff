@@ -8,7 +8,7 @@ authors:
     given-names: Allison M.
     affiliation: "Kuan Lab and Bewersdorf Lab, Yale University"
     orcid: ""
-repository-code: "https://github.com/allison714/ExpandedBrainQuant"
+repository-code: "https://github.com/kuan-lab/panexm-gallery"
 license: MIT
 keywords:
   - expansion microscopy
